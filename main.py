@@ -25,6 +25,7 @@ def startup():
 def read_root():
     return {"message": "API funcionando correctamente"}
 
+# Endpoints Usuarios
 @app.get("/usuarios", tags=["Usuarios"])
 def getUSuarios():
     return session.query(Usuario).all()
@@ -69,6 +70,7 @@ def delete_usuario(id: int):
     else:
         return {"error": "Usuario no encontrado"}
     
+# Endpoints Maquinas
 @app.get("/maquinas", tags=["Maquinas"])
 def get_maquinas():
     return session.query(Maquina).all()
@@ -109,7 +111,8 @@ def delete_maquina(id: int):
         return {"message": "Maquina eliminada"}
     else:
         return {"error": "Maquina no encontrada"}
-    
+
+# Endpoints Proyectos
 @app.get("/proyectos", tags=["Proyectos"])
 def get_proyectos():
     return session.query(Proyecto).all()
@@ -151,6 +154,7 @@ def delete_proyecto(id: int):
     else:
         return {"error": "Proyecto no encontrado"}
     
+# Endpoints Contratos
 @app.get("/contratos", tags=["Contratos"])
 def get_contratos():
     return session.query(Contrato).all()
@@ -191,6 +195,7 @@ def delete_contrato(id: int):
     else:
         return {"error": "Contrato no encontrado"}
     
+# Endpoints Gastos
 @app.get("/gastos", tags=["Gastos"])
 def get_gastos():
     return session.query(Gasto).all()
@@ -232,6 +237,7 @@ def delete_gasto(id: int):
     else:
         return {"error": "Gasto no encontrado"}
     
+# Endpoints Pagos
 @app.get("/pagos", tags=["Pagos"])
 def get_pagos():
     return session.query(Pago).all()
@@ -272,6 +278,7 @@ def delete_pago(id: int):
     else:
         return {"error": "Pago no encontrado"}
     
+# Endpoints Productos
 @app.get("/productos", tags=["Productos"])
 def get_productos():
     return session.query(Producto).all()
@@ -312,6 +319,7 @@ def delete_producto(id: int):
     else:
         return {"error": "Producto no encontrado"}
     
+# Endpoints Arrendamientos
 @app.get("/arrendamientos", tags=["Arrendamientos"])
 def get_arrendamientos():
     return session.query(Arrendamiento).all()
@@ -351,6 +359,7 @@ def delete_arrendamiento(id: int):
     else:
         return {"error": "Arrendamiento no encontrado"}
     
+# Endpoints Movimientos de Inventario
 @app.get("/movimientos_inventario", tags=["Movimientos de Inventario"])
 def get_movimientos_inventario():
     return session.query(MovimientoInventario).all()
@@ -391,6 +400,43 @@ def delete_movimiento_inventario(id: int):
     else:
         return {"error": "Movimiento de inventario no encontrado"}
     
+# Endpoints Reportes Laborales
+@app.get("/reportes_laborales", tags=["Reportes Laborales"])
+def get_reportes_laborales():
+    return session.query(ReporteLaboral).all()
 
+@app.get("/reportes_laborales/{id}", tags=["Reportes Laborales"])
+def get_reporte_laboral(id: int):
+    reporte_laboral = session.query(ReporteLaboral).filter(ReporteLaboral.id == id).first()
+    if reporte_laboral:
+        return reporte_laboral
+    else:
+        return {"error": "Reporte laboral no encontrado"}
 
+@app.post("/reportes_laborales", tags=["Reportes Laborales"])
+def create_reporte_laboral(reporte_laboral: ReporteLaboral):
+    session.add(reporte_laboral)
+    session.commit()
+    session.refresh(reporte_laboral)
+    return reporte_laboral
 
+@app.put("/reportes_laborales/{id}", tags=["Reportes Laborales"])
+def update_reporte_laboral(id: int, reporte_laboral: ReporteLaboral):
+    existing_reporte_laboral = session.query(ReporteLaboral).filter(ReporteLaboral.id == id).first()
+    if existing_reporte_laboral:
+        existing_reporte_laboral.fecha_asignacion = reporte_laboral.fecha_asignacion
+        existing_reporte_laboral.horas_turno = reporte_laboral.horas_turno
+        session.commit()
+        return existing_reporte_laboral
+    else:
+        return {"error": "Reporte laboral no encontrado"}
+
+@app.delete("/reportes_laborales/{id}", tags=["Reportes Laborales"])
+def delete_reporte_laboral(id: int):
+    reporte_laboral = session.query(ReporteLaboral).filter(ReporteLaboral.id == id).first()
+    if reporte_laboral:
+        session.delete(reporte_laboral)
+        session.commit()
+        return {"message": "Reporte laboral eliminado"}
+    else:
+        return {"error": "Reporte laboral no encontrado"}
