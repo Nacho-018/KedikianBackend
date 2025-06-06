@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Pago(Base):
+class Pago(BaseCustom):
     __tablename__ = "pago"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"))
     producto_id = Column(Integer, ForeignKey("producto.id"))
     importe_total = Column(Integer)

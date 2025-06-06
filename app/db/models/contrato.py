@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Contrato(Base):
+class Contrato(BaseCustom):
     __tablename__ = "contrato"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"))
     detalle = Column(String)
     cliente = Column(String)

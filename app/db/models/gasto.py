@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Gasto(Base):
+class Gasto(BaseCustom):
     __tablename__ = "gasto"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     maquina_id = Column(Integer, ForeignKey("maquina.id"))
     tipo = Column(String)

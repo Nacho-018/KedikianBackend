@@ -1,10 +1,9 @@
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Maquina(Base):
+class Maquina(BaseCustom):
     __tablename__ = "maquina"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String)
     estado = Column(Boolean, default=True)
     horas_uso = Column(Integer, default=0)

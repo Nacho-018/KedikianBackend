@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class ReporteLaboral(Base):
+class ReporteLaboral(BaseCustom):
     __tablename__ = "reporte_laboral"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     maquina_id = Column(Integer, ForeignKey("maquina.id"))
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     fecha_asignacion = Column(DateTime)

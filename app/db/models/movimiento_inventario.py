@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class MovimientoInventario(Base):
+class MovimientoInventario(BaseCustom):
     __tablename__ = "movimiento_inventario"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     producto_id = Column(Integer, ForeignKey("producto.id"))
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     cantidad = Column(Integer)

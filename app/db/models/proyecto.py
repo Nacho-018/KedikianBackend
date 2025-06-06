@@ -1,10 +1,9 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Proyecto(Base):
+class Proyecto(BaseCustom):
     __tablename__ = "proyecto"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String)
     estado = Column(Boolean, default=True)
     fecha_creacion = Column(DateTime)

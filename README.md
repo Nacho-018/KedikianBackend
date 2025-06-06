@@ -64,3 +64,26 @@ volumes:
 
 networks:
   webnet:
+
+# ENDPOINTS
+apiUrl = "http://localhost:8000/api"
+
+usuario = "/usuarios"
+
+arrendamiento = "/arrendamientos"
+
+contrato = "/contratos"
+
+gasto = "/gastos"
+
+pago = "/pagos"
+
+maquina = "/maquinas"
+
+movimiento_inventario = "/movimientos-inventario"
+
+producto = "/productos"
+
+proyecto = "/proyectos"
+
+reporte_laboral = "/reportes-laborales"

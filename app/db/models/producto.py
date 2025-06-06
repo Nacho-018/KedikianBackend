@@ -1,13 +1,13 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.models.base_custom import BaseCustom
 
-class Producto(Base):
+class Producto(BaseCustom):
     __tablename__ = "producto"
-    id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String)
     codigo_producto = Column(String)
     inventario = Column(Integer)
+    url_imagen = Column(String, nullable=True)
 
     # Relaciones
     pagos = relationship("Pago", back_populates="producto")
