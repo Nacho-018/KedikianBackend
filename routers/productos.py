@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from typing import List, Optional
-from main import get_db
-from models import Producto
+from app.db.dependencies import get_db
+from app.db.models import Producto
 from app.schemas.schemas import ProductoSchema
 import os
 

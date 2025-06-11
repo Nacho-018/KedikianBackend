@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
-from main import get_db
-from models import ReporteLaboral
+from app.db.dependencies import get_db
+from app.db.models import ReporteLaboral
 from app.schemas.schemas import ReporteLaboralSchema
 
 router = APIRouter()

@@ -18,8 +18,8 @@ from routers import (
 )
 
 @asynccontextmanager
-def lifespan(app: FastAPI):
-    init_db()
+async def lifespan(app: FastAPI):
+    await init_db()
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -37,14 +37,6 @@ app.include_router(productos.router, prefix="/api/v1")
 app.include_router(arrendamientos.router, prefix="/api/v1")
 app.include_router(movimientos_inventario.router, prefix="/api/v1")
 app.include_router(reportes_laborales.router, prefix="/api/v1")
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 @app.get("/")
 def read_root():

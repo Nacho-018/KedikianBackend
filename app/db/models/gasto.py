@@ -1,17 +1,23 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.models.base_custom import BaseCustom
+from sqlalchemy.sql import func
+from app.db.database import Base
 
-class Gasto(BaseCustom):
+class Gasto(Base):
     __tablename__ = "gasto"
+    id = Column(Integer, primary_key=True, autoincrement=True)
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     maquina_id = Column(Integer, ForeignKey("maquina.id"))
-    tipo = Column(String)
+    tipo = Column(String(15))
     importe_total = Column(Integer)
     fecha = Column(DateTime)
-    descripcion = Column(String)
-    imagen = Column(String)
+    descripcion = Column(String(200))
+    imagen = Column(String(100))
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="gastos")
     maquina = relationship("Maquina", back_populates="gastos")
+    
+    # Timestamps
+    created = Column(DateTime(timezone=True), server_default=func.now())
+    updated = Column(DateTime(timezone=True), onupdate=func.now())

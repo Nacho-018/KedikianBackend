@@ -25,10 +25,10 @@ class UserOut(BaseModel):
 
 class ArrendamientoSchema(BaseModel):
     id: int
-    proyecto_id = int
-    maquina_id = int
-    horas_uso = int
-    fecha_asignacion = datetime
+    proyecto_id: int
+    maquina_id: int
+    horas_uso: int
+    fecha_asignacion: datetime
 
     class Config:
         from_attributes = True

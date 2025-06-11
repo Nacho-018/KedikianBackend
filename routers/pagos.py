@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
-from main import get_db
-from models import Pago
+from app.db.dependencies import get_db
+from app.db.models import Pago
 from app.schemas.schemas import PagoSchema
 
 router = APIRouter()
