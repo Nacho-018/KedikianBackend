@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.db.init_db import init_db
-from app.db.database import SessionLocal
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from middlewares.error_handler import ErrorHandler
 # Importar los routers
 from routers import (
     usuarios,
@@ -23,6 +24,16 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+# Configuración de CORS y middlewares
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permite solicitudes desde cualquier origen
+    allow_credentials=True,
+    allow_methods=["*"],  # Métodos permitidos
+    allow_headers=["*"],  # Headers permitidos
+)
+app.add_middleware(ErrorHandler)
 
 # Montar la carpeta static para servir archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
