@@ -1,0 +1,37 @@
+from app.db.models import Usuario
+from app.schemas.schemas import UsuarioSchema
+from sqlalchemy.orm import Session
+from typing import List, Optional
+
+# Servicio para operaciones de Usuario
+
+def get_usuarios(db: Session) -> List[Usuario]:
+    return db.query(Usuario).all()
+
+def get_usuario(db: Session, usuario_id: int) -> Optional[Usuario]:
+    return db.query(Usuario).filter(Usuario.id == usuario_id).first()
+
+def create_usuario(db: Session, usuario: UsuarioSchema) -> Usuario:
+    nuevo_usuario = Usuario(**usuario.model_dump())
+    db.add(nuevo_usuario)
+    db.commit()
+    db.refresh(nuevo_usuario)
+    return nuevo_usuario
+
+def update_usuario(db: Session, usuario_id: int, usuario: UsuarioSchema) -> Optional[Usuario]:
+    existing_usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if existing_usuario:
+        for field, value in usuario.model_dump().items():
+            setattr(existing_usuario, field, value)
+        db.commit()
+        db.refresh(existing_usuario)
+        return existing_usuario
+    return None
+
+def delete_usuario(db: Session, usuario_id: int) -> bool:
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if usuario:
+        db.delete(usuario)
+        db.commit()
+        return True
+    return False

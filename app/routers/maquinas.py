@@ -1,0 +1,48 @@
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
+from typing import List
+from app.db.dependencies import get_db
+from app.schemas.schemas import MaquinaSchema
+from sqlalchemy.orm import Session
+from services.maquina_service import (
+    get_maquinas as service_get_maquinas,
+    get_maquina as service_get_maquina,
+    create_maquina as service_create_maquina,
+    update_maquina as service_update_maquina,
+    delete_maquina as service_delete_maquina,
+)
+
+router = APIRouter()
+
+# Endpoints Maquinas
+@router.get("/maquinas", tags=["Maquinas"], response_model=List[MaquinaSchema])
+def get_maquinas(session: Session = Depends(get_db)):
+    return service_get_maquinas(session)
+
+@router.get("/maquinas/{id}", tags=["Maquinas"], response_model=MaquinaSchema)
+def get_maquina(id: int, session: Session = Depends(get_db)):
+    maquina = service_get_maquina(session, id)
+    if maquina:
+        return maquina
+    else:
+        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+
+@router.post("/maquinas", tags=["Maquinas"], response_model=MaquinaSchema, status_code=201)
+def create_maquina(maquina: MaquinaSchema, session: Session = Depends(get_db)):
+    return service_create_maquina(session, maquina)
+
+@router.put("/maquinas/{id}", tags=["Maquinas"], response_model=MaquinaSchema)
+def update_maquina(id: int, maquina: MaquinaSchema, session: Session = Depends(get_db)):
+    updated = service_update_maquina(session, id, maquina)
+    if updated:
+        return updated
+    else:
+        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+
+@router.delete("/maquinas/{id}", tags=["Maquinas"])
+def delete_maquina(id: int, session: Session = Depends(get_db)):
+    deleted = service_delete_maquina(session, id)
+    if deleted:
+        return {"message": "Maquina eliminada"}
+    else:
+        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)

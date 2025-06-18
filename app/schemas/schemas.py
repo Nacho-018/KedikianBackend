@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 class UsuarioSchema(BaseModel):
-    id: int
+    id: Optional[int] = None
     nombre: str
     email: EmailStr
     hash_contrasena: str
@@ -15,7 +15,7 @@ class UsuarioSchema(BaseModel):
         from_attributes = True
 
 class UserOut(BaseModel):
-    id: int
+    id: Optional[int] = None
     nombre: str
     email: EmailStr
     # hash_contrasena: str
@@ -24,9 +24,9 @@ class UserOut(BaseModel):
     fecha_creacion: datetime
 
 class ArrendamientoSchema(BaseModel):
-    id: int
-    proyecto_id: int
-    maquina_id: int
+    id: Optional[int] = None
+    proyecto_id: Optional[int] = None
+    maquina_id: Optional[int] = None
     horas_uso: int
     fecha_asignacion: datetime
 
@@ -34,8 +34,8 @@ class ArrendamientoSchema(BaseModel):
         from_attributes = True
 
 class ContratoSchema(BaseModel):
-    id: int
-    proyecto_id: int
+    id: Optional[int] = None
+    proyecto_id: Optional[int] = None
     detalle: str
     cliente: str
     importe_total: int
@@ -46,9 +46,9 @@ class ContratoSchema(BaseModel):
         from_attributes = True
 
 class GastoSchema(BaseModel):
-    id: int
-    usuario_id: int
-    maquina_id: int
+    id: Optional[int] = None
+    usuario_id: Optional[int] = None
+    maquina_id: Optional[int] = None
     tipo: str
     importe_total: int
     fecha: datetime
@@ -59,7 +59,7 @@ class GastoSchema(BaseModel):
         from_attributes = True
 
 class MaquinaSchema(BaseModel):
-    id: int
+    id: Optional[int] = None
     nombre: str
     estado: bool
     horas_uso: int
@@ -68,9 +68,9 @@ class MaquinaSchema(BaseModel):
         from_attributes = True
 
 class MovimientoInventarioSchema(BaseModel):
-    id: int
-    producto_id: int
-    usuario_id: int
+    id: Optional[int] = None
+    producto_id: Optional[int] = None
+    usuario_id: Optional[int] = None
     cantidad: int
     fecha: datetime
     tipo_transaccion: str  # "entrada" o "salida"
@@ -79,9 +79,9 @@ class MovimientoInventarioSchema(BaseModel):
         from_attributes = True
 
 class PagoSchema(BaseModel):
-    id: int
-    proyecto_id: int
-    producto_id: int
+    id: Optional[int] = None
+    proyecto_id: Optional[int] = None
+    producto_id: Optional[int] = None
     importe_total: int
     fecha: datetime
     descripcion: str
@@ -90,7 +90,7 @@ class PagoSchema(BaseModel):
         from_attributes = True
 
 class ProductoSchema(BaseModel):
-    id: int
+    id: Optional[int] = None
     nombre: str
     codigo_producto: str
     inventario: int
@@ -100,20 +100,20 @@ class ProductoSchema(BaseModel):
         from_attributes = True
 
 class ProyectoSchema(BaseModel):
-    id: int
+    id: Optional[int] = None
     nombre: str
     estado: bool
     fecha_creacion: datetime
-    contrato_id: int
+    contrato_id: Optional[int] = None
     ubicacion: str
 
     class Config:
         from_attributes = True
 
 class ReporteLaboralSchema(BaseModel):
-    id: int
-    maquina_id: int
-    usuario_id: int
+    id: Optional[int] = None
+    maquina_id: Optional[int] = None
+    usuario_id: Optional[int] = None
     fecha_asignacion: datetime
     horas_turno: datetime
 
