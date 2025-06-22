@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import ContratoSchema
 from sqlalchemy.orm import Session
-from services.contrato_service import (
+from app.services.contrato_service import (
     get_contratos as service_get_contratos,
     get_contrato as service_get_contrato,
     create_contrato as service_create_contrato,

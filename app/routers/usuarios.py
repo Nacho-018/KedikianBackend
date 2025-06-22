@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import UsuarioSchema, UserOut
+from app.schemas.schemas import UsuarioSchema, UserOut, UsuarioCreate
 from sqlalchemy.orm import Session
-from services.usuario_service import (
+from app.services.usuario_service import (
     get_usuarios as service_get_usuarios,
     get_usuario as service_get_usuario,
     create_usuario as service_create_usuario,
@@ -27,8 +27,8 @@ def get_usuario(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Usuario no encontrado"}, status_code=404)
 
-@router.post("/usuarios", tags=["Usuarios"], response_model=UsuarioSchema, status_code=201)
-def create_usuario(usuario: UsuarioSchema, session: Session = Depends(get_db)):
+@router.post("/usuarios", tags=["Usuarios"], response_model=UserOut, status_code=201)
+def create_usuario(usuario: UsuarioCreate, session: Session = Depends(get_db)):
     return service_create_usuario(session, usuario)
 
 @router.put("/usuarios/{id}", tags=["Usuarios"], response_model=UsuarioSchema)

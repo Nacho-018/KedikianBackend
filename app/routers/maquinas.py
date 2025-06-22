@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import MaquinaSchema
 from sqlalchemy.orm import Session
-from services.maquina_service import (
+from app.services.maquina_service import (
     get_maquinas as service_get_maquinas,
     get_maquina as service_get_maquina,
     create_maquina as service_create_maquina,

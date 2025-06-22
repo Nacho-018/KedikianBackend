@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import PagoSchema
 from sqlalchemy.orm import Session
-from services.pago_service import (
+from app.services.pago_service import (
     get_pagos as service_get_pagos,
     get_pago as service_get_pago,
     create_pago as service_create_pago,

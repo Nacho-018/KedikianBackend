@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import ProyectoSchema
 from sqlalchemy.orm import Session
-from services.proyecto_service import (
+from app.services.proyecto_service import (
     get_proyectos as service_get_proyectos,
     get_proyecto as service_get_proyecto,
     create_proyecto as service_create_proyecto,
