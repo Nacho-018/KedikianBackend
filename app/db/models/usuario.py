@@ -10,7 +10,7 @@ class Usuario(Base):
     email = Column(String(70), unique=True)
     hash_contrasena = Column(String(256))
     estado = Column(Boolean, default=True)
-    roles = Column(String(15))
+    roles = Column(String(100))
     fecha_creacion = Column(DateTime)
 
     # Relaciones

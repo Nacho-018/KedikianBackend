@@ -5,14 +5,41 @@ from typing import List, Optional
 
 # Servicio para operaciones de Usuario
 
-def get_usuarios(db: Session) -> List[Usuario]:
-    return db.query(Usuario).all()
+def get_usuarios(db: Session) -> List[UserOut]:
+    usuarios = db.query(Usuario).all()
+    return [UserOut(
+        id=u.id,
+        nombre=u.nombre,
+        email=u.email,
+        estado=u.estado,
+        roles=u.roles.split(',') if u.roles else [],
+        fecha_creacion=u.fecha_creacion
+    ) for u in usuarios]
 
-def get_usuario(db: Session, usuario_id: int) -> Optional[Usuario]:
-    return db.query(Usuario).filter(Usuario.id == usuario_id).first()
+def get_usuario(db: Session, usuario_id: int) -> Optional[UserOut]:
+    u = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if u:
+        return UserOut(
+            id=u.id,
+            nombre=u.nombre,
+            email=u.email,
+            estado=u.estado,
+            roles=u.roles.split(',') if u.roles else [],
+            fecha_creacion=u.fecha_creacion
+        )
+    return None
 
-def create_usuario(db: Session, usuario: UsuarioSchema) -> Usuario:
-    nuevo_usuario = Usuario(**usuario.model_dump())
+def create_usuario(db: Session, usuario: UsuarioCreate) -> UserOut:
+    # Convertir la lista de roles a string para guardar en la base de datos
+    roles_str = ','.join(usuario.roles)
+    nuevo_usuario = Usuario(
+        nombre=usuario.nombre,
+        email=usuario.email,
+        hash_contrasena=usuario.hash_contrasena,
+        estado=usuario.estado,
+        roles=roles_str,
+        fecha_creacion=usuario.fecha_creacion
+    )
     db.add(nuevo_usuario)
     db.commit()
     db.refresh(nuevo_usuario)
@@ -26,14 +53,25 @@ def create_usuario(db: Session, usuario: UsuarioSchema) -> Usuario:
         fecha_creacion=nuevo_usuario.fecha_creacion
     )
 
-def update_usuario(db: Session, usuario_id: int, usuario: UsuarioSchema) -> Optional[Usuario]:
+def update_usuario(db: Session, usuario_id: int, usuario: UsuarioSchema) -> Optional[UserOut]:
     existing_usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if existing_usuario:
-        for field, value in usuario.model_dump().items():
+        data = usuario.model_dump()
+        # Convertir lista de roles a string si existe
+        if 'roles' in data and isinstance(data['roles'], list):
+            data['roles'] = ','.join(data['roles'])
+        for field, value in data.items():
             setattr(existing_usuario, field, value)
         db.commit()
         db.refresh(existing_usuario)
-        return existing_usuario
+        return UserOut(
+            id=existing_usuario.id,
+            nombre=existing_usuario.nombre,
+            email=existing_usuario.email,
+            estado=existing_usuario.estado,
+            roles=existing_usuario.roles.split(',') if existing_usuario.roles else [],
+            fecha_creacion=existing_usuario.fecha_creacion
+        )
     return None
 
 def delete_usuario(db: Session, usuario_id: int) -> bool:
