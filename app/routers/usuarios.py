@@ -27,8 +27,8 @@ def get_usuario(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Usuario no encontrado"}, status_code=404)
 
-@router.post("/usuarios", tags=["Usuarios"], response_model=UsuarioSchema, status_code=201)
-def create_usuario(usuario: UsuarioSchema, session: Session = Depends(get_db)):
+@router.post("/usuarios", tags=["Usuarios"], response_model=UserOut, status_code=201)
+def create_usuario(usuario: UsuarioCreate, session: Session = Depends(get_db)):
     return service_create_usuario(session, usuario)
 
 @router.put("/usuarios/{id}", tags=["Usuarios"], response_model=UsuarioSchema)
