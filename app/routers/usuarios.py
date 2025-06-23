@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import UsuarioSchema, UserOut
+from app.schemas.schemas import UsuarioSchema, UserOut, UsuarioCreate
 from sqlalchemy.orm import Session
 from app.services.usuario_service import (
     get_usuarios as service_get_usuarios,

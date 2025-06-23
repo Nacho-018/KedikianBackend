@@ -1,5 +1,5 @@
 from app.db.models import Usuario
-from app.schemas.schemas import UsuarioSchema
+from app.schemas.schemas import UsuarioSchema, UserOut, UsuarioCreate
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -16,7 +16,15 @@ def create_usuario(db: Session, usuario: UsuarioSchema) -> Usuario:
     db.add(nuevo_usuario)
     db.commit()
     db.refresh(nuevo_usuario)
-    return nuevo_usuario
+    # Convertir roles de string a lista para la salida
+    return UserOut(
+        id=nuevo_usuario.id,
+        nombre=nuevo_usuario.nombre,
+        email=nuevo_usuario.email,
+        estado=nuevo_usuario.estado,
+        roles=nuevo_usuario.roles.split(',') if nuevo_usuario.roles else [],
+        fecha_creacion=nuevo_usuario.fecha_creacion
+    )
 
 def update_usuario(db: Session, usuario_id: int, usuario: UsuarioSchema) -> Optional[Usuario]:
     existing_usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()

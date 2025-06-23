@@ -26,10 +26,12 @@ class UserOut(BaseModel):
     id: Optional[int] = None
     nombre: str
     email: EmailStr
-    # hash_contrasena: str
     estado: bool
-    # roles: List[str]
+    roles: List[str]
     fecha_creacion: datetime
+
+    class Config:
+        from_attributes = True
 
 class ArrendamientoSchema(BaseModel):
     id: Optional[int] = None
