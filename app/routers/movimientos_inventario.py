@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import MovimientoInventarioSchema
 from sqlalchemy.orm import Session
-from services.movimiento_inventario_service import (
+from app.services.movimiento_inventario_service import (
     get_movimientos_inventario as service_get_movimientos_inventario,
     get_movimiento_inventario as service_get_movimiento_inventario,
     create_movimiento_inventario as service_create_movimiento_inventario,

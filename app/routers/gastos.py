@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import GastoSchema
 from sqlalchemy.orm import Session
-from services.gasto_service import (
+from app.services.gasto_service import (
     get_gastos as service_get_gastos,
     get_gasto as service_get_gasto,
     create_gasto as service_create_gasto,

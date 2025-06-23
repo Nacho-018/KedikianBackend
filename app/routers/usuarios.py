@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import UsuarioSchema, UserOut
 from sqlalchemy.orm import Session
-from services.usuario_service import (
+from app.services.usuario_service import (
     get_usuarios as service_get_usuarios,
     get_usuario as service_get_usuario,
     create_usuario as service_create_usuario,

@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import ReporteLaboralSchema
 from sqlalchemy.orm import Session
-from services.reporte_laboral_service import (
+from app.services.reporte_laboral_service import (
     get_reportes_laborales as service_get_reportes_laborales,
     get_reporte_laboral as service_get_reporte_laboral,
     create_reporte_laboral as service_create_reporte_laboral,

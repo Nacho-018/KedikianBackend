@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import ArrendamientoSchema
 from sqlalchemy.orm import Session
-from services.arrendamiento_service import (
+from app.services.arrendamiento_service import (
     get_arrendamientos as service_get_arrendamientos,
     get_arrendamiento as service_get_arrendamiento,
     create_arrendamiento as service_create_arrendamiento,
