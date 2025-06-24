@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # Usuario
 class UsuarioBase(BaseModel):
@@ -23,6 +23,7 @@ class UsuarioSchema(UsuarioBase):
 
 class UserOut(UsuarioBase):
     id: Optional[int] = None
+    hash_contrasena: Union[str, None] = ''
     fecha_creacion: datetime
 
     class Config:
