@@ -192,8 +192,13 @@ class ProductoOut(ProductoBase):
 # Proyecto
 class ProyectoBase(BaseModel):
     nombre: str
+    descripcion: Optional[str] = None
     estado: bool
-    fecha_creacion: datetime
+    fecha_creacion: Optional[datetime] = None
+    fecha_inicio: Optional[datetime] = None
+    fecha_fin: Optional[datetime] = None
+    progreso: Optional[int] = 0
+    gerente: Optional[str] = None
     contrato_id: Optional[int] = None
     ubicacion: str
 

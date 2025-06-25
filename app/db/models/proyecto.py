@@ -7,9 +7,14 @@ class Proyecto(Base):
     __tablename__ = "proyecto"
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(75))
+    descripcion = Column(String(500), nullable=True)
     estado = Column(Boolean, default=True)
     fecha_creacion = Column(DateTime)
-    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True)
+    fecha_inicio = Column(DateTime, nullable=True)
+    fecha_fin = Column(DateTime, nullable=True)
+    progreso = Column(Integer, default=0)
+    gerente = Column(String(100), nullable=True)
+    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)
     ubicacion = Column(String(50))
 
     # Relación 1 a 1 con Contrato
