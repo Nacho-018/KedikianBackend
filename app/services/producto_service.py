@@ -31,12 +31,15 @@ def get_producto(db: Session, producto_id: int) -> Optional[ProductoOut]:
         )
     return None
 
-def create_producto(db: Session, nombre: str, codigo_producto: str, inventario: int, imagen) -> ProductoOut:
-    filename = f"{codigo_producto}_{imagen.filename}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    with open(file_path, "wb") as f:
-        f.write(imagen.file.read())
-    url_imagen = f"/static/productos/{filename}"
+def create_producto(db: Session, nombre: str, codigo_producto: str, inventario: int, imagen=None) -> ProductoOut:
+    if imagen:
+        filename = f"{codigo_producto}_{imagen.filename}"
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        with open(file_path, "wb") as f:
+            f.write(imagen.file.read())
+        url_imagen = f"/static/productos/{filename}"
+    else:
+        url_imagen = None  # o '' si prefieres string vacío
     nuevo_producto = Producto(
         nombre=nombre,
         codigo_producto=codigo_producto,

@@ -36,7 +36,7 @@ def create_producto(
     nombre: str = Form(...),
     codigo_producto: str = Form(...),
     inventario: int = Form(...),
-    imagen: UploadFile = File(...),
+    imagen: Optional[UploadFile] = File(None),
     session: Session = Depends(get_db)
 ):
     return service_create_producto(session, nombre, codigo_producto, inventario, imagen)

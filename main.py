@@ -51,6 +51,7 @@ app.include_router(movimientos_inventario_router.router, prefix="/api/v1")
 app.include_router(reportes_laborales_router.router, prefix="/api/v1")
 app.include_router(excel_router.router, prefix="/api/v1")
 
+
 @app.get("/")
 def read_root():
     return {"message": "API funcionando correctamente"}

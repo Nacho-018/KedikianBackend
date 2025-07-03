@@ -239,6 +239,7 @@ class ReporteLaboralOut(ReporteLaboralBase):
     class Config:
         from_attributes = True
 
+
 class ConfiguracionTarifasBase(BaseModel):
     hora_normal: float
     hora_feriado: float
@@ -306,3 +307,30 @@ class ResumenExcelResponse(BaseModel):
     feriado_remunerativo: float
     extras_remunerativo: float
     total_remunerativo: float
+
+# Excel Import/Export
+class OperarioExcel(BaseModel):
+    nombre: str
+    dni: str
+    horasNormales: float
+    horasFeriado: float
+    horasExtras: float
+    precioHoraNormal: float
+    precioHoraFeriado: float
+    precioHoraExtra: float
+    totalCalculado: float
+
+class ConfiguracionTarifasExcel(BaseModel):
+    horaNormal: float
+    horaFeriado: float
+    horaExtra: float
+    multiplicadorExtra: float
+
+class ExcelImportRequest(BaseModel):
+    operarios: List[OperarioExcel]
+    configuracion: ConfiguracionTarifasExcel
+
+class ExcelImportResponse(BaseModel):
+    message: str
+    resumen: Optional[dict] = None
+
