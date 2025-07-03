@@ -21,7 +21,7 @@ class UsuarioSchema(UsuarioBase):
     class Config:
         from_attributes = True
 
-class UserOut(UsuarioBase):
+class UsuarioOut(UsuarioBase):
     id: Optional[int] = None
     hash_contrasena: Union[str, None] = ''
     fecha_creacion: datetime
@@ -233,3 +233,71 @@ class ReporteLaboralOut(ReporteLaboralBase):
 
     class Config:
         from_attributes = True
+
+class ConfiguracionTarifasBase(BaseModel):
+    hora_normal: float
+    hora_feriado: float
+    multiplicador_extra: float
+
+class ConfiguracionTarifasCreate(ConfiguracionTarifasBase):
+    pass
+
+class ConfiguracionTarifasResponse(ConfiguracionTarifasBase):
+    id: int
+    activo: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class OperarioExcel(BaseModel):
+    nombre: str
+    dni: str
+    horas_normales: float
+    horas_feriado: float
+    horas_extras: float
+    precio_hora_normal: float
+    precio_hora_feriado: float
+    precio_hora_extra: float
+    total_calculado: float
+
+class RegistroHorasBase(BaseModel):
+    operario_id: int
+    periodo: str
+    horas_normales: float = 0
+    horas_feriado: float = 0
+    horas_extras: float = 0
+
+class RegistroHorasCreate(RegistroHorasBase):
+    pass
+
+class RegistroHorasUpdate(BaseModel):
+    horas_normales: Optional[float] = None
+    horas_feriado: Optional[float] = None
+    horas_extras: Optional[float] = None
+
+class RegistroHorasResponse(RegistroHorasBase):
+    id: int
+    total_calculado: float
+    created_at: datetime
+    updated_at: datetime
+    operario: UsuarioSchema
+    
+    class Config:
+        from_attributes = True
+
+class ResumenExcelRequest(BaseModel):
+    periodo: str
+    operarios: List[OperarioExcel]
+
+class ResumenExcelResponse(BaseModel):
+    periodo: str
+    total_horas_normales: float
+    total_horas_feriado: float
+    total_horas_extras: float
+    basico_remunerativo: float
+    asistencia_perfecta_remunerativo: float
+    feriado_remunerativo: float
+    extras_remunerativo: float
+    total_remunerativo: float

@@ -6,16 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.middlewares.error_handler import ErrorHandler
 # Importar los routers
 from app.routers import (
-    usuarios,
-    maquinas,
-    proyectos,
-    contratos,
-    gastos,
-    pagos,
-    productos,
-    arrendamientos,
-    movimientos_inventario,
-    reportes_laborales,
+    usuarios_router,
+    maquinas_router,
+    proyectos_router,
+    contratos_router,
+    gastos_router,
+    pagos_router,
+    productos_router,
+    arrendamientos_router,
+    movimientos_inventario_router,
+    reportes_laborales_router,
+    excel_router
 )
 
 @asynccontextmanager
@@ -38,16 +39,17 @@ app.add_middleware(
 # Montar la carpeta static para servir archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-app.include_router(usuarios.router, prefix="/api/v1")
-app.include_router(maquinas.router, prefix="/api/v1")
-app.include_router(proyectos.router, prefix="/api/v1")
-app.include_router(contratos.router, prefix="/api/v1")
-app.include_router(gastos.router, prefix="/api/v1")
-app.include_router(pagos.router, prefix="/api/v1")
-app.include_router(productos.router, prefix="/api/v1")
-app.include_router(arrendamientos.router, prefix="/api/v1")
-app.include_router(movimientos_inventario.router, prefix="/api/v1")
-app.include_router(reportes_laborales.router, prefix="/api/v1")
+app.include_router(usuarios_router.router, prefix="/api/v1")
+app.include_router(maquinas_router.router, prefix="/api/v1")
+app.include_router(proyectos_router.router, prefix="/api/v1")
+app.include_router(contratos_router.router, prefix="/api/v1")
+app.include_router(gastos_router.router, prefix="/api/v1")
+app.include_router(pagos_router.router, prefix="/api/v1")
+app.include_router(productos_router.router, prefix="/api/v1")
+app.include_router(arrendamientos_router.router, prefix="/api/v1")
+app.include_router(movimientos_inventario_router.router, prefix="/api/v1")
+app.include_router(reportes_laborales_router.router, prefix="/api/v1")
+app.include_router(excel_router.router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
