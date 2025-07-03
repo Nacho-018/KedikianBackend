@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import ProyectoSchema
+from app.schemas.schemas import ProyectoSchema, ProyectoCreate
 from sqlalchemy.orm import Session
 from app.services.proyecto_service import (
     get_proyectos as service_get_proyectos,
@@ -28,7 +28,7 @@ def get_proyecto(id: int, session: Session = Depends(get_db)):
         return JSONResponse(content={"error": "Proyecto no encontrado"}, status_code=404)
 
 @router.post("/proyectos", tags=["Proyectos"], response_model=ProyectoSchema, status_code=201)
-def create_proyecto(proyecto: ProyectoSchema, session: Session = Depends(get_db)):
+def create_proyecto(proyecto: ProyectoCreate, session: Session = Depends(get_db)):
     return service_create_proyecto(session, proyecto)
 
 @router.put("/proyectos/{id}", tags=["Proyectos"], response_model=ProyectoSchema)
