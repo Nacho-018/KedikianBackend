@@ -13,9 +13,11 @@ from app.schemas.schemas import (
     RegistroHorasCreate,
     RegistroHorasResponse,
     ResumenExcelRequest,
-    ResumenExcelResponse
+    ResumenExcelResponse,
+    UsuarioCreate
 )
 from app.db.models import RegistroHoras, ResumenSueldo
+from app.services.usuario_service import create_usuario
 
 router = APIRouter(prefix="/excel", tags=["Excel Management"])
 
@@ -149,3 +151,8 @@ async def export_excel(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al exportar Excel: {str(e)}")
+
+@router.post("/operarios", response_model=UsuarioOut)
+async def crear_operario(operario: UsuarioCreate, db: Session = Depends(get_db)):
+    """Crea un nuevo operario desde el módulo Excel"""
+    return create_usuario(db, operario)
