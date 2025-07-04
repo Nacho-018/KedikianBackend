@@ -13,17 +13,17 @@ from app.services.producto_service import (
 )
 import os
 
-router = APIRouter()
+router = APIRouter(prefix="/productos", tags=["Productos"])
 
 UPLOAD_DIR = "static/productos/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Endpoints Productos
-@router.get("/productos", tags=["Productos"], response_model=List[ProductoSchema])
+@router.get("/", response_model=List[ProductoSchema])
 def get_productos(session: Session = Depends(get_db)):
     return service_get_productos(session)
 
-@router.get("/productos/{id}", tags=["Productos"], response_model=ProductoSchema)
+@router.get("/{id}", response_model=ProductoSchema)
 def get_producto(id: int, session: Session = Depends(get_db)):
     producto = service_get_producto(session, id)
     if producto:
@@ -31,7 +31,7 @@ def get_producto(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
 
-@router.post("/productos", tags=["Productos"], response_model=ProductoSchema, status_code=201)
+@router.post("/", response_model=ProductoSchema, status_code=201)
 def create_producto(
     nombre: str = Form(...),
     codigo_producto: str = Form(...),
@@ -41,7 +41,7 @@ def create_producto(
 ):
     return service_create_producto(session, nombre, codigo_producto, inventario, imagen)
 
-@router.put("/productos/{id}", tags=["Productos"], response_model=ProductoSchema)
+@router.put("/{id}", response_model=ProductoSchema)
 def update_producto(
     id: int,
     nombre: str = Form(...),
@@ -56,7 +56,7 @@ def update_producto(
     else:
         return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
 
-@router.delete("/productos/{id}", tags=["Productos"])
+@router.delete("/{id}")
 def delete_producto(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_producto(session, id)
     if deleted:

@@ -12,14 +12,14 @@ from app.services.movimiento_inventario_service import (
     delete_movimiento_inventario as service_delete_movimiento_inventario,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/movimientos-inventario", tags=["Movimientos de Inventario"])
 
 # Endpoints Movimientos de Inventario
-@router.get("/movimientos-inventario", tags=["Movimientos de Inventario"], response_model=List[MovimientoInventarioSchema])
+@router.get("/", response_model=List[MovimientoInventarioSchema])
 def get_movimientos_inventario(session: Session = Depends(get_db)):
     return service_get_movimientos_inventario(session)
 
-@router.get("/movimientos-inventario/{id}", tags=["Movimientos de Inventario"], response_model=MovimientoInventarioSchema)
+@router.get("/{id}", response_model=MovimientoInventarioSchema)
 def get_movimiento_inventario(id: int, session: Session = Depends(get_db)):
     movimiento = service_get_movimiento_inventario(session, id)
     if movimiento:
@@ -27,11 +27,11 @@ def get_movimiento_inventario(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Movimiento de inventario no encontrado"}, status_code=404)
 
-@router.post("/movimientos-inventario", tags=["Movimientos de Inventario"], response_model=MovimientoInventarioSchema, status_code=201)
+@router.post("/", response_model=MovimientoInventarioSchema, status_code=201)
 def create_movimiento_inventario(movimiento_inventario: MovimientoInventarioSchema, session: Session = Depends(get_db)):
     return service_create_movimiento_inventario(session, movimiento_inventario)
 
-@router.put("/movimientos-inventario/{id}", tags=["Movimientos de Inventario"], response_model=MovimientoInventarioSchema)
+@router.put("/{id}", response_model=MovimientoInventarioSchema)
 def update_movimiento_inventario(id: int, movimiento_inventario: MovimientoInventarioSchema, session: Session = Depends(get_db)):
     updated = service_update_movimiento_inventario(session, id, movimiento_inventario)
     if updated:
@@ -39,7 +39,7 @@ def update_movimiento_inventario(id: int, movimiento_inventario: MovimientoInven
     else:
         return JSONResponse(content={"error": "Movimiento de inventario no encontrado"}, status_code=404)
 
-@router.delete("/movimientos-inventario/{id}", tags=["Movimientos de Inventario"])
+@router.delete("/{id}")
 def delete_movimiento_inventario(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_movimiento_inventario(session, id)
     if deleted:

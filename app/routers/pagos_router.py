@@ -12,14 +12,14 @@ from app.services.pago_service import (
     delete_pago as service_delete_pago,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/pagos", tags=["Pagos"])
 
 # Endpoints Pagos
-@router.get("/pagos", tags=["Pagos"], response_model=List[PagoSchema])
+@router.get("/", response_model=List[PagoSchema])
 def get_pagos(session: Session = Depends(get_db)):
     return service_get_pagos(session)
 
-@router.get("/pagos/{id}", tags=["Pagos"], response_model=PagoSchema)
+@router.get("/{id}", response_model=PagoSchema)
 def get_pago(id: int, session: Session = Depends(get_db)):
     pago = service_get_pago(session, id)
     if pago:
@@ -27,11 +27,11 @@ def get_pago(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Pago no encontrado"}, status_code=404)
 
-@router.post("/pagos", tags=["Pagos"], response_model=PagoSchema, status_code=201)
+@router.post("/", response_model=PagoSchema, status_code=201)
 def create_pago(pago: PagoSchema, session: Session = Depends(get_db)):
     return service_create_pago(session, pago)
 
-@router.put("/pagos/{id}", tags=["Pagos"], response_model=PagoSchema)
+@router.put("/{id}", response_model=PagoSchema)
 def update_pago(id: int, pago: PagoSchema, session: Session = Depends(get_db)):
     updated = service_update_pago(session, id, pago)
     if updated:
@@ -39,7 +39,7 @@ def update_pago(id: int, pago: PagoSchema, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Pago no encontrado"}, status_code=404)
 
-@router.delete("/pagos/{id}", tags=["Pagos"])
+@router.delete("/{id}")
 def delete_pago(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_pago(session, id)
     if deleted:

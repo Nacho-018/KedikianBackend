@@ -12,14 +12,14 @@ from app.services.maquina_service import (
     delete_maquina as service_delete_maquina,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/maquinas", tags=["Maquinas"])
 
 # Endpoints Maquinas
-@router.get("/maquinas", tags=["Maquinas"], response_model=List[MaquinaSchema])
+@router.get("/", response_model=List[MaquinaSchema])
 def get_maquinas(session: Session = Depends(get_db)):
     return service_get_maquinas(session)
 
-@router.get("/maquinas/{id}", tags=["Maquinas"], response_model=MaquinaSchema)
+@router.get("/{id}", response_model=MaquinaSchema)
 def get_maquina(id: int, session: Session = Depends(get_db)):
     maquina = service_get_maquina(session, id)
     if maquina:
@@ -27,11 +27,11 @@ def get_maquina(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
 
-@router.post("/maquinas", tags=["Maquinas"], response_model=MaquinaSchema, status_code=201)
+@router.post("/", response_model=MaquinaSchema, status_code=201)
 def create_maquina(maquina: MaquinaSchema, session: Session = Depends(get_db)):
     return service_create_maquina(session, maquina)
 
-@router.put("/maquinas/{id}", tags=["Maquinas"], response_model=MaquinaSchema)
+@router.put("/{id}", response_model=MaquinaSchema)
 def update_maquina(id: int, maquina: MaquinaSchema, session: Session = Depends(get_db)):
     updated = service_update_maquina(session, id, maquina)
     if updated:
@@ -39,7 +39,7 @@ def update_maquina(id: int, maquina: MaquinaSchema, session: Session = Depends(g
     else:
         return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
 
-@router.delete("/maquinas/{id}", tags=["Maquinas"])
+@router.delete("/{id}")
 def delete_maquina(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_maquina(session, id)
     if deleted:

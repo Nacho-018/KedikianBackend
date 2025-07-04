@@ -12,14 +12,14 @@ from app.services.proyecto_service import (
     delete_proyecto as service_delete_proyecto,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/proyectos", tags=["Proyectos"])
 
 # Endpoints Proyectos
-@router.get("/proyectos", tags=["Proyectos"], response_model=List[ProyectoSchema])
+@router.get("/", response_model=List[ProyectoSchema])
 def get_proyectos(session: Session = Depends(get_db)):
     return service_get_proyectos(session)
 
-@router.get("/proyectos/{id}", tags=["Proyectos"], response_model=ProyectoSchema)
+@router.get("/{id}", response_model=ProyectoSchema)
 def get_proyecto(id: int, session: Session = Depends(get_db)):
     proyecto = service_get_proyecto(session, id)
     if proyecto:
@@ -27,11 +27,11 @@ def get_proyecto(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Proyecto no encontrado"}, status_code=404)
 
-@router.post("/proyectos", tags=["Proyectos"], response_model=ProyectoSchema, status_code=201)
+@router.post("/", response_model=ProyectoSchema, status_code=201)
 def create_proyecto(proyecto: ProyectoCreate, session: Session = Depends(get_db)):
     return service_create_proyecto(session, proyecto)
 
-@router.put("/proyectos/{id}", tags=["Proyectos"], response_model=ProyectoSchema)
+@router.put("/{id}", response_model=ProyectoSchema)
 def update_proyecto(id: int, proyecto: ProyectoSchema, session: Session = Depends(get_db)):
     updated = service_update_proyecto(session, id, proyecto)
     if updated:
@@ -39,7 +39,7 @@ def update_proyecto(id: int, proyecto: ProyectoSchema, session: Session = Depend
     else:
         return JSONResponse(content={"error": "Proyecto no encontrado"}, status_code=404)
 
-@router.delete("/proyectos/{id}", tags=["Proyectos"])
+@router.delete("/{id}")
 def delete_proyecto(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_proyecto(session, id)
     if deleted:

@@ -8,8 +8,8 @@ class EntregaArido(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"))
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
-    tipo_arido = Column(String, default="")
-    cantidad = Column(Integer, default=0)
+    tipo_arido = Column(String)
+    cantidad = Column(Integer)
     fecha_entrega = Column(DateTime)
 
     # Relaciones

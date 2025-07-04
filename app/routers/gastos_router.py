@@ -12,14 +12,14 @@ from app.services.gasto_service import (
     delete_gasto as service_delete_gasto,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/gastos", tags=["Gastos"])
 
 # Endpoints Gastos
-@router.get("/gastos", tags=["Gastos"], response_model=List[GastoSchema])
+@router.get("/", response_model=List[GastoSchema])
 def get_gastos(session: Session = Depends(get_db)):
     return service_get_gastos(session)
 
-@router.get("/gastos/{id}", tags=["Gastos"], response_model=GastoSchema)
+@router.get("/{id}", response_model=GastoSchema)
 def get_gasto(id: int, session: Session = Depends(get_db)):
     gasto = service_get_gasto(session, id)
     if gasto:
@@ -27,11 +27,11 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Gasto no encontrado"}, status_code=404)
 
-@router.post("/gastos", tags=["Gastos"], response_model=GastoSchema, status_code=201)
+@router.post("/", response_model=GastoSchema, status_code=201)
 def create_gasto(gasto: GastoSchema, session: Session = Depends(get_db)):
     return service_create_gasto(session, gasto)
 
-@router.put("/gastos/{id}", tags=["Gastos"], response_model=GastoSchema)
+@router.put("/{id}", response_model=GastoSchema)
 def update_gasto(id: int, gasto: GastoSchema, session: Session = Depends(get_db)):
     updated = service_update_gasto(session, id, gasto)
     if updated:
@@ -39,7 +39,7 @@ def update_gasto(id: int, gasto: GastoSchema, session: Session = Depends(get_db)
     else:
         return JSONResponse(content={"error": "Gasto no encontrado"}, status_code=404)
 
-@router.delete("/gastos/{id}", tags=["Gastos"])
+@router.delete("/{id}")
 def delete_gasto(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_gasto(session, id)
     if deleted:

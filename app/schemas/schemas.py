@@ -334,3 +334,30 @@ class ExcelImportResponse(BaseModel):
     message: str
     resumen: Optional[dict] = None
 
+# EntregaArido
+class EntregaAridoBase(BaseModel):
+    proyecto_id: int
+    usuario_id: int
+    tipo_arido: str
+    cantidad: int
+    fecha_entrega: datetime
+
+class EntregaAridoCreate(EntregaAridoBase):
+    pass
+
+class EntregaAridoSchema(EntregaAridoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class EntregaAridoOut(EntregaAridoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

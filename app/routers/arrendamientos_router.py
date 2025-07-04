@@ -12,14 +12,14 @@ from app.services.arrendamiento_service import (
     delete_arrendamiento as service_delete_arrendamiento,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/arrendamientos", tags=["Arrendamientos"])
 
 # Endpoints Arrendamientos
-@router.get("/arrendamientos", tags=["Arrendamientos"], response_model=List[ArrendamientoSchema])
+@router.get("/", response_model=List[ArrendamientoSchema])
 def get_arrendamientos(session: Session = Depends(get_db)):
     return service_get_arrendamientos(session)
 
-@router.get("/arrendamientos/{id}", tags=["Arrendamientos"], response_model=ArrendamientoSchema)
+@router.get("/{id}", response_model=ArrendamientoSchema)
 def get_arrendamiento(id: int, session: Session = Depends(get_db)):
     arrendamiento = service_get_arrendamiento(session, id)
     if arrendamiento:
@@ -27,11 +27,11 @@ def get_arrendamiento(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Arrendamiento no encontrado"}, status_code=404)
 
-@router.post("/arrendamientos", tags=["Arrendamientos"], response_model=ArrendamientoSchema, status_code=201)
+@router.post("/", response_model=ArrendamientoSchema, status_code=201)
 def create_arrendamiento(arrendamiento: ArrendamientoSchema, session: Session = Depends(get_db)):
     return service_create_arrendamiento(session, arrendamiento)
 
-@router.put("/arrendamientos/{id}", tags=["Arrendamientos"], response_model=ArrendamientoSchema)
+@router.put("/{id}", response_model=ArrendamientoSchema)
 def update_arrendamiento(id: int, arrendamiento: ArrendamientoSchema, session: Session = Depends(get_db)):
     updated = service_update_arrendamiento(session, id, arrendamiento)
     if updated:
@@ -39,7 +39,7 @@ def update_arrendamiento(id: int, arrendamiento: ArrendamientoSchema, session: S
     else:
         return JSONResponse(content={"error": "Arrendamiento no encontrado"}, status_code=404)
 
-@router.delete("/arrendamientos/{id}", tags=["Arrendamientos"])
+@router.delete("/{id}")
 def delete_arrendamiento(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_arrendamiento(session, id)
     if deleted:
