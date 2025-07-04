@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import PagoSchema
+from app.schemas.schemas import PagoSchema, PagoCreate
 from sqlalchemy.orm import Session
 from app.services.pago_service import (
     get_pagos as service_get_pagos,
@@ -25,24 +25,37 @@ def get_pago(id: int, session: Session = Depends(get_db)):
     if pago:
         return pago
     else:
-        return JSONResponse(content={"error": "Pago no encontrado"}, status_code=404)
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
 
 @router.post("/", response_model=PagoSchema, status_code=201)
-def create_pago(pago: PagoSchema, session: Session = Depends(get_db)):
-    return service_create_pago(session, pago)
+def create_pago(pago: PagoCreate, session: Session = Depends(get_db)):
+    try:
+        return service_create_pago(session, pago)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear pago: {str(e)}")
 
 @router.put("/{id}", response_model=PagoSchema)
 def update_pago(id: int, pago: PagoSchema, session: Session = Depends(get_db)):
-    updated = service_update_pago(session, id, pago)
-    if updated:
-        return updated
-    else:
-        return JSONResponse(content={"error": "Pago no encontrado"}, status_code=404)
+    try:
+        updated = service_update_pago(session, id, pago)
+        if updated:
+            return updated
+        else:
+            raise HTTPException(status_code=404, detail="Pago no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar pago: {str(e)}")
 
 @router.delete("/{id}")
 def delete_pago(id: int, session: Session = Depends(get_db)):
-    deleted = service_delete_pago(session, id)
-    if deleted:
-        return {"message": "Pago eliminado"}
-    else:
-        return JSONResponse(content={"error": "Pago no encontrado"}, status_code=404)
+    try:
+        deleted = service_delete_pago(session, id)
+        if deleted:
+            return {"message": "Pago eliminado"}
+        else:
+            raise HTTPException(status_code=404, detail="Pago no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar pago: {str(e)}")

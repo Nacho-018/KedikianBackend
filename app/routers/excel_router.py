@@ -14,7 +14,9 @@ from app.schemas.schemas import (
     RegistroHorasResponse,
     ResumenExcelRequest,
     ResumenExcelResponse,
-    UsuarioCreate
+    UsuarioCreate,
+    OperarioCreateFromExcel,
+    OperarioCreateFromExcelFlexible
 )
 from app.db.models import RegistroHoras, ResumenSueldo
 from app.services.usuario_service import create_usuario
@@ -153,6 +155,30 @@ async def export_excel(
         raise HTTPException(status_code=500, detail=f"Error al exportar Excel: {str(e)}")
 
 @router.post("/operarios", response_model=UsuarioOut)
-async def crear_operario(operario: UsuarioCreate, db: Session = Depends(get_db)):
+async def crear_operario(operario: OperarioCreateFromExcelFlexible, db: Session = Depends(get_db)):
     """Crea un nuevo operario desde el módulo Excel"""
-    return create_usuario(db, operario)
+    try:
+        # Validar que se proporcionen los campos mínimos requeridos
+        if not operario.nombre:
+            raise HTTPException(status_code=422, detail="El campo 'nombre' es obligatorio")
+        if not operario.dni:
+            raise HTTPException(status_code=422, detail="El campo 'dni' es obligatorio")
+        
+        # Convertir OperarioCreateFromExcelFlexible a UsuarioCreate
+        usuario_data = UsuarioCreate(
+            nombre=operario.nombre,
+            email=operario.email or f"{operario.dni}@kedikian.com",  # Email por defecto basado en DNI
+            estado=operario.estado,
+            roles=operario.roles,
+            hash_contrasena=operario.hash_contrasena
+        )
+        return create_usuario(db, usuario_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear operario: {str(e)}")
+
+@router.post("/operarios/debug")
+async def debug_operario_data(operario_data: dict):
+    """Endpoint de debug para ver qué datos está enviando el frontend"""
+    return {"received_data": operario_data, "message": "Datos recibidos correctamente"}

@@ -334,6 +334,31 @@ class ExcelImportResponse(BaseModel):
     message: str
     resumen: Optional[dict] = None
 
+class OperarioCreateFromExcel(BaseModel):
+    nombre: str
+    dni: str
+    email: Optional[str] = None
+    estado: bool = True
+    roles: List[str] = ["operario"]
+    hash_contrasena: str = "default_password_hash"  # Contraseña por defecto
+
+class OperarioCreateFromExcelFlexible(BaseModel):
+    nombre: Optional[str] = None
+    dni: Optional[str] = None
+    email: Optional[str] = None
+    estado: Optional[bool] = True
+    roles: Optional[List[str]] = ["operario"]
+    hash_contrasena: Optional[str] = "default_password_hash"
+    
+    # Campos alternativos que el frontend podría enviar
+    horasNormales: Optional[float] = None
+    horasFeriado: Optional[float] = None
+    horasExtras: Optional[float] = None
+    precioHoraNormal: Optional[float] = None
+    precioHoraFeriado: Optional[float] = None
+    precioHoraExtra: Optional[float] = None
+    totalCalculado: Optional[float] = None
+
 # EntregaArido
 class EntregaAridoBase(BaseModel):
     proyecto_id: int

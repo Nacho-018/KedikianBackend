@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import GastoSchema
+from app.schemas.schemas import GastoSchema, GastoCreate
 from sqlalchemy.orm import Session
 from app.services.gasto_service import (
     get_gastos as service_get_gastos,
@@ -25,24 +25,37 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
     if gasto:
         return gasto
     else:
-        return JSONResponse(content={"error": "Gasto no encontrado"}, status_code=404)
+        raise HTTPException(status_code=404, detail="Gasto no encontrado")
 
 @router.post("/", response_model=GastoSchema, status_code=201)
-def create_gasto(gasto: GastoSchema, session: Session = Depends(get_db)):
-    return service_create_gasto(session, gasto)
+def create_gasto(gasto: GastoCreate, session: Session = Depends(get_db)):
+    try:
+        return service_create_gasto(session, gasto)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
 @router.put("/{id}", response_model=GastoSchema)
 def update_gasto(id: int, gasto: GastoSchema, session: Session = Depends(get_db)):
-    updated = service_update_gasto(session, id, gasto)
-    if updated:
-        return updated
-    else:
-        return JSONResponse(content={"error": "Gasto no encontrado"}, status_code=404)
+    try:
+        updated = service_update_gasto(session, id, gasto)
+        if updated:
+            return updated
+        else:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar gasto: {str(e)}")
 
 @router.delete("/{id}")
 def delete_gasto(id: int, session: Session = Depends(get_db)):
-    deleted = service_delete_gasto(session, id)
-    if deleted:
-        return {"message": "Gasto eliminado"}
-    else:
-        return JSONResponse(content={"error": "Gasto no encontrado"}, status_code=404)
+    try:
+        deleted = service_delete_gasto(session, id)
+        if deleted:
+            return {"message": "Gasto eliminado"}
+        else:
+            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar gasto: {str(e)}")
