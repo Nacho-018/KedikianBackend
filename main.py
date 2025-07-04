@@ -25,7 +25,6 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-
 app.add_middleware(ErrorHandler)
 # Configuración de CORS y middlewares
 app.add_middleware(
@@ -59,4 +58,4 @@ def read_root():
 # Lineas de código para debuggear
 import uvicorn
 if __name__ == "__main__":
-    uvicorn.run("main:app")
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,4 +1,4 @@
-from app.db.models import MovimientoInventario
+from app.db.models import MovimientoInventario, Producto
 from app.schemas.schemas import MovimientoInventarioSchema, MovimientoInventarioCreate, MovimientoInventarioOut
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -32,6 +32,13 @@ def get_movimiento_inventario(db: Session, movimiento_id: int) -> Optional[Movim
 def create_movimiento_inventario(db: Session, movimiento: MovimientoInventarioCreate) -> MovimientoInventarioOut:
     nuevo_movimiento = MovimientoInventario(**movimiento.model_dump())
     db.add(nuevo_movimiento)
+    # Actualizar inventario del producto
+    producto = db.query(Producto).filter(Producto.id == movimiento.producto_id).first()
+    if producto:
+        if movimiento.tipo_transaccion == "entrada":
+            producto.inventario += movimiento.cantidad
+        elif movimiento.tipo_transaccion == "salida":
+            producto.inventario -= movimiento.cantidad
     db.commit()
     db.refresh(nuevo_movimiento)
     return MovimientoInventarioOut(

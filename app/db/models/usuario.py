@@ -14,9 +14,11 @@ class Usuario(Base):
     fecha_creacion = Column(DateTime)
 
     # Relaciones
+    entrega_arido = relationship("EntregaArido", back_populates="usuario", cascade="all, delete-orphan")
     reportes_laborales = relationship("ReporteLaboral", back_populates="usuario")
     gastos = relationship("Gasto", back_populates="usuario")
     movimientos_inventario = relationship("MovimientoInventario", back_populates="usuario")
+    registros_horas = relationship("RegistroHoras", back_populates="operario")
     
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())

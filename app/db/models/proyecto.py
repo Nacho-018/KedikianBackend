@@ -24,6 +24,7 @@ class Proyecto(Base):
     )
     arrendamientos = relationship("Arrendamiento", back_populates="proyecto")
     pagos = relationship("Pago", back_populates="proyecto")
+    entrega_arido = relationship("EntregaArido", back_populates="proyecto")
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())
     updated = Column(DateTime(timezone=True), onupdate=func.now())
