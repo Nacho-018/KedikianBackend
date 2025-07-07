@@ -20,7 +20,7 @@ from app.schemas.schemas import (
     ResumenSueldoCreate,
     ResumenSueldoResponse
 )
-from app.db.models import RegistroHoras, ResumenSueldo
+from app.db.models import RegistroHoras, ResumenSueldo, Usuario
 from app.services.usuario_service import create_usuario
 
 router = APIRouter(prefix="/excel", tags=["Excel Management"])
@@ -205,3 +205,31 @@ async def listar_resumenes_sueldo(db: Session = Depends(get_db)):
         return resumenes
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener resúmenes de sueldo: {str(e)}")
+
+@router.put("/resumen-sueldo/{id}", response_model=ResumenSueldoResponse)
+async def actualizar_resumen_sueldo(id: int, resumen: ResumenSueldoCreate, db: Session = Depends(get_db)):
+    """Actualiza un resumen de sueldo por id"""
+    try:
+        resumen_db = db.query(ResumenSueldo).filter(ResumenSueldo.id == id).first()
+        if not resumen_db:
+            raise HTTPException(status_code=404, detail="Resumen de sueldo no encontrado")
+        for field, value in resumen.model_dump().items():
+            setattr(resumen_db, field, value)
+        db.commit()
+        db.refresh(resumen_db)
+        return resumen_db
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar resumen de sueldo: {str(e)}")
+
+@router.delete("/resumen-sueldo/{id}")
+async def eliminar_resumen_sueldo(id: int, db: Session = Depends(get_db)):
+    """Elimina un resumen de sueldo por id"""
+    try:
+        resumen = db.query(ResumenSueldo).filter(ResumenSueldo.id == id).first()
+        if not resumen:
+            raise HTTPException(status_code=404, detail="Resumen de sueldo no encontrado")
+        db.delete(resumen)
+        db.commit()
+        return {"message": "Resumen de sueldo eliminado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar resumen de sueldo: {str(e)}")

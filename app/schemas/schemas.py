@@ -387,6 +387,8 @@ class EntregaAridoOut(EntregaAridoBase):
         from_attributes = True
 
 class ResumenSueldoCreate(BaseModel):
+    nombre: str
+    dni: str
     periodo: str
     total_horas_normales: float = 0
     total_horas_feriado: float = 0
