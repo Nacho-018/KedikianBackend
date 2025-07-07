@@ -386,3 +386,23 @@ class EntregaAridoOut(EntregaAridoBase):
     class Config:
         from_attributes = True
 
+class ResumenSueldoCreate(BaseModel):
+    periodo: str
+    total_horas_normales: float = 0
+    total_horas_feriado: float = 0
+    total_horas_extras: float = 0
+    basico_remunerativo: float = 0
+    asistencia_perfecta_remunerativo: float = 0
+    feriado_remunerativo: float = 0
+    extras_remunerativo: float = 0
+    total_remunerativo: float = 0
+    observaciones: Optional[str] = None
+
+class ResumenSueldoResponse(ResumenSueldoCreate):
+    id: int
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+

@@ -16,7 +16,9 @@ from app.schemas.schemas import (
     ResumenExcelResponse,
     UsuarioCreate,
     OperarioCreateFromExcel,
-    OperarioCreateFromExcelFlexible
+    OperarioCreateFromExcelFlexible,
+    ResumenSueldoCreate,
+    ResumenSueldoResponse
 )
 from app.db.models import RegistroHoras, ResumenSueldo
 from app.services.usuario_service import create_usuario
@@ -182,3 +184,24 @@ async def crear_operario(operario: OperarioCreateFromExcelFlexible, db: Session 
 async def debug_operario_data(operario_data: dict):
     """Endpoint de debug para ver qué datos está enviando el frontend"""
     return {"received_data": operario_data, "message": "Datos recibidos correctamente"}
+
+@router.post("/resumen-sueldo", response_model=ResumenSueldoResponse)
+async def crear_resumen_sueldo(resumen: ResumenSueldoCreate, db: Session = Depends(get_db)):
+    """Crea un nuevo resumen de sueldo en la base de datos"""
+    try:
+        nuevo_resumen = ResumenSueldo(**resumen.model_dump())
+        db.add(nuevo_resumen)
+        db.commit()
+        db.refresh(nuevo_resumen)
+        return nuevo_resumen
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al guardar resumen de sueldo: {str(e)}")
+
+@router.get("/resumen-sueldo", response_model=List[ResumenSueldoResponse])
+async def listar_resumenes_sueldo(db: Session = Depends(get_db)):
+    """Lista todos los resúmenes de sueldo guardados en la base de datos"""
+    try:
+        resumenes = db.query(ResumenSueldo).all()
+        return resumenes
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener resúmenes de sueldo: {str(e)}")
