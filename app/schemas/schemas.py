@@ -109,17 +109,25 @@ class MaquinaBase(BaseModel):
 class MaquinaCreate(MaquinaBase):
     pass
 
-class MaquinaSchema(MaquinaBase):
+class MaquinaSchema(BaseModel):
     id: Optional[int] = None
+    nombre: str
+    estado: bool = True
+    horas_uso: int = 0
+    proyecto_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
-class MaquinaOut(MaquinaBase):
+class MaquinaOut(BaseModel):
     id: Optional[int] = None
+    nombre: str
+    estado: bool = True
+    horas_uso: int = 0
+    proyecto_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # MovimientoInventario
 class MovimientoInventarioBase(BaseModel):
