@@ -14,9 +14,13 @@ from app.schemas.schemas import (
     RegistroHorasResponse,
     ResumenExcelRequest,
     ResumenExcelResponse,
-    UsuarioCreate
+    UsuarioCreate,
+    OperarioCreateFromExcel,
+    OperarioCreateFromExcelFlexible,
+    ResumenSueldoCreate,
+    ResumenSueldoResponse
 )
-from app.db.models import RegistroHoras, ResumenSueldo
+from app.db.models import RegistroHoras, ResumenSueldo, Usuario
 from app.services.usuario_service import create_usuario
 from app.security.auth import get_current_user
 
@@ -154,6 +158,79 @@ async def export_excel(
         raise HTTPException(status_code=500, detail=f"Error al exportar Excel: {str(e)}")
 
 @router.post("/operarios", response_model=UsuarioOut)
-async def crear_operario(operario: UsuarioCreate, db: Session = Depends(get_db)):
+async def crear_operario(operario: OperarioCreateFromExcelFlexible, db: Session = Depends(get_db)):
     """Crea un nuevo operario desde el módulo Excel"""
-    return create_usuario(db, operario)
+    try:
+        # Validar que se proporcionen los campos mínimos requeridos
+        if not operario.nombre:
+            raise HTTPException(status_code=422, detail="El campo 'nombre' es obligatorio")
+        if not operario.dni:
+            raise HTTPException(status_code=422, detail="El campo 'dni' es obligatorio")
+        
+        # Convertir OperarioCreateFromExcelFlexible a UsuarioCreate
+        usuario_data = UsuarioCreate(
+            nombre=operario.nombre,
+            email=operario.email or f"{operario.dni}@kedikian.com",  # Email por defecto basado en DNI
+            estado=operario.estado,
+            roles=operario.roles,
+            hash_contrasena=operario.hash_contrasena
+        )
+        return create_usuario(db, usuario_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al crear operario: {str(e)}")
+
+@router.post("/operarios/debug")
+async def debug_operario_data(operario_data: dict):
+    """Endpoint de debug para ver qué datos está enviando el frontend"""
+    return {"received_data": operario_data, "message": "Datos recibidos correctamente"}
+
+@router.post("/resumen-sueldo", response_model=ResumenSueldoResponse)
+async def crear_resumen_sueldo(resumen: ResumenSueldoCreate, db: Session = Depends(get_db)):
+    """Crea un nuevo resumen de sueldo en la base de datos"""
+    try:
+        nuevo_resumen = ResumenSueldo(**resumen.model_dump())
+        db.add(nuevo_resumen)
+        db.commit()
+        db.refresh(nuevo_resumen)
+        return nuevo_resumen
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al guardar resumen de sueldo: {str(e)}")
+
+@router.get("/resumen-sueldo", response_model=List[ResumenSueldoResponse])
+async def listar_resumenes_sueldo(db: Session = Depends(get_db)):
+    """Lista todos los resúmenes de sueldo guardados en la base de datos"""
+    try:
+        resumenes = db.query(ResumenSueldo).all()
+        return resumenes
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener resúmenes de sueldo: {str(e)}")
+
+@router.put("/resumen-sueldo/{id}", response_model=ResumenSueldoResponse)
+async def actualizar_resumen_sueldo(id: int, resumen: ResumenSueldoCreate, db: Session = Depends(get_db)):
+    """Actualiza un resumen de sueldo por id"""
+    try:
+        resumen_db = db.query(ResumenSueldo).filter(ResumenSueldo.id == id).first()
+        if not resumen_db:
+            raise HTTPException(status_code=404, detail="Resumen de sueldo no encontrado")
+        for field, value in resumen.model_dump().items():
+            setattr(resumen_db, field, value)
+        db.commit()
+        db.refresh(resumen_db)
+        return resumen_db
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar resumen de sueldo: {str(e)}")
+
+@router.delete("/resumen-sueldo/{id}")
+async def eliminar_resumen_sueldo(id: int, db: Session = Depends(get_db)):
+    """Elimina un resumen de sueldo por id"""
+    try:
+        resumen = db.query(ResumenSueldo).filter(ResumenSueldo.id == id).first()
+        if not resumen:
+            raise HTTPException(status_code=404, detail="Resumen de sueldo no encontrado")
+        db.delete(resumen)
+        db.commit()
+        return {"message": "Resumen de sueldo eliminado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al eliminar resumen de sueldo: {str(e)}")

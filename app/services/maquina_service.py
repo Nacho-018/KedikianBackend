@@ -11,7 +11,8 @@ def get_maquinas(db: Session) -> List[MaquinaOut]:
         id=m.id,
         nombre=m.nombre,
         estado=m.estado,
-        horas_uso=m.horas_uso
+        horas_uso=m.horas_uso,
+        proyecto_id=m.proyecto_id
     ) for m in maquinas]
 
 def get_maquina(db: Session, maquina_id: int) -> Optional[MaquinaOut]:
@@ -21,7 +22,8 @@ def get_maquina(db: Session, maquina_id: int) -> Optional[MaquinaOut]:
             id=m.id,
             nombre=m.nombre,
             estado=m.estado,
-            horas_uso=m.horas_uso
+            horas_uso=m.horas_uso,
+            proyecto_id=m.proyecto_id
         )
     return None
 
@@ -34,7 +36,8 @@ def create_maquina(db: Session, maquina: MaquinaCreate) -> MaquinaOut:
         id=nueva_maquina.id,
         nombre=nueva_maquina.nombre,
         estado=nueva_maquina.estado,
-        horas_uso=nueva_maquina.horas_uso
+        horas_uso=nueva_maquina.horas_uso,
+        proyecto_id=nueva_maquina.proyecto_id
     )
 
 def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Optional[MaquinaOut]:
@@ -48,7 +51,8 @@ def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Opti
             id=existing_maquina.id,
             nombre=existing_maquina.nombre,
             estado=existing_maquina.estado,
-            horas_uso=existing_maquina.horas_uso
+            horas_uso=existing_maquina.horas_uso,
+            proyecto_id=existing_maquina.proyecto_id
         )
     return None
 

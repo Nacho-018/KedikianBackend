@@ -109,17 +109,25 @@ class MaquinaBase(BaseModel):
 class MaquinaCreate(MaquinaBase):
     pass
 
-class MaquinaSchema(MaquinaBase):
+class MaquinaSchema(BaseModel):
     id: Optional[int] = None
+    nombre: str
+    estado: bool = True
+    horas_uso: int = 0
+    proyecto_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
-class MaquinaOut(MaquinaBase):
+class MaquinaOut(BaseModel):
     id: Optional[int] = None
+    nombre: str
+    estado: bool = True
+    horas_uso: int = 0
+    proyecto_id: Optional[int] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # MovimientoInventario
 class MovimientoInventarioBase(BaseModel):
@@ -334,6 +342,31 @@ class ExcelImportResponse(BaseModel):
     message: str
     resumen: Optional[dict] = None
 
+class OperarioCreateFromExcel(BaseModel):
+    nombre: str
+    dni: str
+    email: Optional[str] = None
+    estado: bool = True
+    roles: List[str] = ["operario"]
+    hash_contrasena: str = "default_password_hash"  # Contraseña por defecto
+
+class OperarioCreateFromExcelFlexible(BaseModel):
+    nombre: Optional[str] = None
+    dni: Optional[str] = None
+    email: Optional[str] = None
+    estado: Optional[bool] = True
+    roles: Optional[List[str]] = ["operario"]
+    hash_contrasena: Optional[str] = "default_password_hash"
+    
+    # Campos alternativos que el frontend podría enviar
+    horasNormales: Optional[float] = None
+    horasFeriado: Optional[float] = None
+    horasExtras: Optional[float] = None
+    precioHoraNormal: Optional[float] = None
+    precioHoraFeriado: Optional[float] = None
+    precioHoraExtra: Optional[float] = None
+    totalCalculado: Optional[float] = None
+
 # EntregaArido
 class EntregaAridoBase(BaseModel):
     proyecto_id: int
@@ -355,6 +388,28 @@ class EntregaAridoSchema(EntregaAridoBase):
 
 class EntregaAridoOut(EntregaAridoBase):
     id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ResumenSueldoCreate(BaseModel):
+    nombre: str
+    dni: str
+    periodo: str
+    total_horas_normales: float = 0
+    total_horas_feriado: float = 0
+    total_horas_extras: float = 0
+    basico_remunerativo: float = 0
+    asistencia_perfecta_remunerativo: float = 0
+    feriado_remunerativo: float = 0
+    extras_remunerativo: float = 0
+    total_remunerativo: float = 0
+    observaciones: Optional[str] = None
+
+class ResumenSueldoResponse(ResumenSueldoCreate):
+    id: int
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
 

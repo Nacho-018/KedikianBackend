@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from sqlalchemy.sql import func
@@ -9,6 +9,7 @@ class Maquina(Base):
     nombre = Column(String(50))
     estado = Column(Boolean, default=True)
     horas_uso = Column(Integer, default=0)
+    proyecto_id = Column(Integer, ForeignKey("proyecto.id"), nullable=True)
 
     # Relaciones
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")

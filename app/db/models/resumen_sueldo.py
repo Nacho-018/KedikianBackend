@@ -6,6 +6,8 @@ class ResumenSueldo(Base):
     __tablename__ = "resumen_sueldo"
     
     id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(100), nullable=False)
+    dni = Column(String(20), nullable=False)
     periodo = Column(String(20), nullable=False)
     total_horas_normales = Column(Float, default=0)
     total_horas_feriado = Column(Float, default=0)
@@ -16,6 +18,7 @@ class ResumenSueldo(Base):
     extras_remunerativo = Column(Float, default=0)
     total_remunerativo = Column(Float, default=0)
     observaciones = Column(Text)
+    
 
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())
