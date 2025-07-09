@@ -10,8 +10,9 @@ from app.services.entrega_arido_service import (
     update_entrega_arido,
     delete_entrega_arido,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/entregas-arido", tags=["Entregas de Arido"])
+router = APIRouter(prefix="/entregas-arido", tags=["Entregas de Arido"], dependencies=[Depends(get_current_user)])
 
 @router.post("/", response_model=EntregaAridoOut)
 def create(entrega: EntregaAridoCreate, db: Session = Depends(get_db)):

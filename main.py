@@ -17,7 +17,8 @@ from app.routers import (
     movimientos_inventario_router,
     reportes_laborales_router,
     excel_router,
-    entrega_arido_router
+    entrega_arido_router,
+    login_router
 )
 
 @asynccontextmanager
@@ -51,6 +52,7 @@ app.include_router(movimientos_inventario_router.router, prefix="/api/v1")
 app.include_router(reportes_laborales_router.router, prefix="/api/v1")
 app.include_router(excel_router.router, prefix="/api/v1")
 app.include_router(entrega_arido_router.router, prefix="/api/v1")
+app.include_router(login_router.router, prefix="/api/v1")
 
 
 @app.get("/")

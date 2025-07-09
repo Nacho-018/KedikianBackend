@@ -11,8 +11,9 @@ from app.services.gasto_service import (
     update_gasto as service_update_gasto,
     delete_gasto as service_delete_gasto,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/gastos", tags=["Gastos"])
+router = APIRouter(prefix="/gastos", tags=["Gastos"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Gastos
 @router.get("/", response_model=List[GastoSchema])

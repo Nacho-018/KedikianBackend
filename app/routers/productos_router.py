@@ -12,8 +12,9 @@ from app.services.producto_service import (
     delete_producto as service_delete_producto,
 )
 import os
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/productos", tags=["Productos"])
+router = APIRouter(prefix="/productos", tags=["Productos"], dependencies=[Depends(get_current_user)])
 
 UPLOAD_DIR = "static/productos/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)

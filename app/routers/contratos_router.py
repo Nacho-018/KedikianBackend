@@ -11,8 +11,9 @@ from app.services.contrato_service import (
     update_contrato as service_update_contrato,
     delete_contrato as service_delete_contrato,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/contratos", tags=["Contratos"])
+router = APIRouter(prefix="/contratos", tags=["Contratos"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Contratos
 @router.get("/", response_model=List[ContratoSchema])

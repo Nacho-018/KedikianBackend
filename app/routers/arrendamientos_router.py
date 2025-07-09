@@ -11,8 +11,9 @@ from app.services.arrendamiento_service import (
     update_arrendamiento as service_update_arrendamiento,
     delete_arrendamiento as service_delete_arrendamiento,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/arrendamientos", tags=["Arrendamientos"])
+router = APIRouter(prefix="/arrendamientos", tags=["Arrendamientos"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Arrendamientos
 @router.get("/", response_model=List[ArrendamientoSchema])

@@ -18,8 +18,9 @@ from app.schemas.schemas import (
 )
 from app.db.models import RegistroHoras, ResumenSueldo
 from app.services.usuario_service import create_usuario
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/excel", tags=["Excel Management"])
+router = APIRouter(prefix="/excel", tags=["Excel Management"], dependencies=[Depends(get_current_user)])
 
 @router.get("/operarios", response_model=List[UsuarioOut])
 async def get_operarios_activos(db: Session = Depends(get_db)):

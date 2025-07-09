@@ -11,8 +11,9 @@ from app.services.maquina_service import (
     update_maquina as service_update_maquina,
     delete_maquina as service_delete_maquina,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/maquinas", tags=["Maquinas"])
+router = APIRouter(prefix="/maquinas", tags=["Maquinas"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Maquinas
 @router.get("/", response_model=List[MaquinaSchema])
