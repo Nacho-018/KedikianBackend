@@ -13,14 +13,14 @@ from app.services.usuario_service import (
 )
 from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/usuarios", tags=["Usuarios"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 # Endpoints Usuarios
-@router.get("/", response_model=List[UsuarioSchema])
+@router.get("/", response_model=List[UsuarioSchema], dependencies=[Depends(get_current_user)])
 def get_usuarios(session: Session = Depends(get_db)):
     return service_get_usuarios(session)
 
-@router.get("/{id}", response_model=UsuarioSchema)
+@router.get("/{id}", response_model=UsuarioSchema, dependencies=[Depends(get_current_user)])
 def get_usuario(id: int, session: Session = Depends(get_db)):
     usuario = service_get_usuario(session, id)
     if usuario:
@@ -32,7 +32,7 @@ def get_usuario(id: int, session: Session = Depends(get_db)):
 def create_usuario(usuario: UsuarioCreate, session: Session = Depends(get_db)):
     return service_create_usuario(session, usuario)
 
-@router.put("/{id}", response_model=UsuarioSchema)
+@router.put("/{id}", response_model=UsuarioSchema, dependencies=[Depends(get_current_user)])
 def update_usuario(id: int, usuario: UsuarioSchema, session: Session = Depends(get_db)):
     updated = service_update_usuario(session, id, usuario)
     if updated:
@@ -40,7 +40,7 @@ def update_usuario(id: int, usuario: UsuarioSchema, session: Session = Depends(g
     else:
         return JSONResponse(content={"error": "Usuario no encontrado"}, status_code=404)
 
-@router.delete("/{id}")
+@router.delete("/{id}", dependencies=[Depends(get_current_user)])
 def delete_usuario(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_usuario(session, id)
     if deleted:
