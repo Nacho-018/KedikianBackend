@@ -1,6 +1,7 @@
 from app.db.models import Proyecto, Contrato
 from app.schemas.schemas import ProyectoSchema, ProyectoCreate, ProyectoOut
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 from datetime import datetime
 
@@ -71,26 +72,48 @@ def create_proyecto(db: Session, proyecto: ProyectoCreate) -> ProyectoOut:
     )
 
 def update_proyecto(db: Session, proyecto_id: int, proyecto: ProyectoSchema) -> Optional[ProyectoOut]:
-    existing_proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
-    if existing_proyecto:
-        for field, value in proyecto.model_dump().items():
-            setattr(existing_proyecto, field, value)
-        db.commit()
-        db.refresh(existing_proyecto)
-        return ProyectoOut(
-            id=existing_proyecto.id,
-            nombre=existing_proyecto.nombre,
-            descripcion=existing_proyecto.descripcion,
-            estado=existing_proyecto.estado,
-            fecha_creacion=existing_proyecto.fecha_creacion,
-            fecha_inicio=existing_proyecto.fecha_inicio,
-            fecha_fin=existing_proyecto.fecha_fin,
-            progreso=existing_proyecto.progreso,
-            gerente=existing_proyecto.gerente,
-            contrato_id=existing_proyecto.contrato_id,
-            ubicacion=existing_proyecto.ubicacion
-        )
-    return None
+    try:
+        existing_proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+        if existing_proyecto:
+            # Validar que el contrato_id existe, si no existe, establecerlo como None
+            proyecto_data = proyecto.model_dump()
+            if proyecto_data.get('contrato_id') is not None:
+                contrato = db.query(Contrato).filter(Contrato.id == proyecto_data['contrato_id']).first()
+                if contrato is None:
+                    proyecto_data['contrato_id'] = None
+            
+            # Asegurar que fecha_creacion tenga un valor
+            if proyecto_data.get('fecha_creacion') is None:
+                proyecto_data['fecha_creacion'] = existing_proyecto.fecha_creacion or datetime.now()
+            
+            # Filtrar campos None y el campo id para evitar problemas
+            proyecto_data = {k: v for k, v in proyecto_data.items() if v is not None and k != 'id'}
+            
+            for field, value in proyecto_data.items():
+                setattr(existing_proyecto, field, value)
+            
+            db.commit()
+            db.refresh(existing_proyecto)
+            return ProyectoOut(
+                id=existing_proyecto.id,
+                nombre=existing_proyecto.nombre,
+                descripcion=existing_proyecto.descripcion,
+                estado=existing_proyecto.estado,
+                fecha_creacion=existing_proyecto.fecha_creacion,
+                fecha_inicio=existing_proyecto.fecha_inicio,
+                fecha_fin=existing_proyecto.fecha_fin,
+                progreso=existing_proyecto.progreso,
+                gerente=existing_proyecto.gerente,
+                contrato_id=existing_proyecto.contrato_id,
+                ubicacion=existing_proyecto.ubicacion
+            )
+        return None
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise Exception(f"Error al actualizar proyecto: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise Exception(f"Error inesperado al actualizar proyecto: {str(e)}")
 
 def delete_proyecto(db: Session, proyecto_id: int) -> bool:
     proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()

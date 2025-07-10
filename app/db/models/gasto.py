@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -12,7 +12,7 @@ class Gasto(Base):
     importe_total = Column(Integer)
     fecha = Column(DateTime)
     descripcion = Column(String(200))
-    imagen = Column(String(100))
+    imagen = Column(LargeBinary)
 
     # Relaciones
     usuario = relationship("Usuario", back_populates="gastos")

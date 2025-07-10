@@ -83,7 +83,7 @@ class GastoBase(BaseModel):
     importe_total: int
     fecha: datetime
     descripcion: str
-    imagen: str
+    imagen: Optional[str] = None
 
 class GastoCreate(GastoBase):
     pass

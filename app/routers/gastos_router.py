@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
@@ -28,20 +28,54 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
 
 @router.post("/", response_model=GastoSchema, status_code=201)
-def create_gasto(gasto: GastoCreate, session: Session = Depends(get_db)):
+def create_gasto(
+    usuario_id: int = Form(...),
+    maquina_id: int = Form(...),
+    tipo: str = Form(...),
+    importe_total: int = Form(...),
+    fecha: str = Form(...),
+    descripcion: str = Form(...),
+    imagen: UploadFile = File(None),
+    session: Session = Depends(get_db)
+):
     try:
-        return service_create_gasto(session, gasto)
+        return service_create_gasto(
+            session,
+            usuario_id,
+            maquina_id,
+            tipo,
+            importe_total,
+            fecha,
+            descripcion,
+            imagen
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
 @router.put("/{id}", response_model=GastoSchema)
-def update_gasto(id: int, gasto: GastoSchema, session: Session = Depends(get_db)):
+def update_gasto(
+    id: int,
+    usuario_id: int = Form(...),
+    maquina_id: int = Form(...),
+    tipo: str = Form(...),
+    importe_total: int = Form(...),
+    fecha: str = Form(...),
+    descripcion: str = Form(...),
+    imagen: UploadFile = File(None),
+    session: Session = Depends(get_db)
+):
     try:
-        updated = service_update_gasto(session, id, gasto)
-        if updated:
-            return updated
-        else:
-            raise HTTPException(status_code=404, detail="Gasto no encontrado")
+        return service_update_gasto(
+            session,
+            id,
+            usuario_id,
+            maquina_id,
+            tipo,
+            importe_total,
+            fecha,
+            descripcion,
+            imagen
+        )
     except HTTPException:
         raise
     except Exception as e:

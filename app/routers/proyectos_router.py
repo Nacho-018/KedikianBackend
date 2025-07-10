@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
@@ -33,11 +33,16 @@ def create_proyecto(proyecto: ProyectoCreate, session: Session = Depends(get_db)
 
 @router.put("/{id}", response_model=ProyectoSchema)
 def update_proyecto(id: int, proyecto: ProyectoSchema, session: Session = Depends(get_db)):
-    updated = service_update_proyecto(session, id, proyecto)
-    if updated:
-        return updated
-    else:
-        return JSONResponse(content={"error": "Proyecto no encontrado"}, status_code=404)
+    try:
+        updated = service_update_proyecto(session, id, proyecto)
+        if updated:
+            return updated
+        else:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar proyecto: {str(e)}")
 
 @router.delete("/{id}")
 def delete_proyecto(id: int, session: Session = Depends(get_db)):
