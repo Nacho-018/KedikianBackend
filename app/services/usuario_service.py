@@ -81,3 +81,17 @@ def delete_usuario(db: Session, usuario_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_usuario_by_email(db: Session, email: str) -> Optional[UsuarioOut]:
+    u = db.query(Usuario).filter(Usuario.email == email).first()
+    if u:
+        return UsuarioOut(
+            id=u.id,
+            nombre=u.nombre,
+            email=u.email,
+            estado=u.estado,
+            roles=u.roles.split(',') if u.roles else [],
+            fecha_creacion=u.fecha_creacion,
+            hash_contrasena=u.hash_contrasena
+        )
+    return None

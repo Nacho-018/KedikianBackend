@@ -11,8 +11,9 @@ from app.services.movimiento_inventario_service import (
     update_movimiento_inventario as service_update_movimiento_inventario,
     delete_movimiento_inventario as service_delete_movimiento_inventario,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/movimientos-inventario", tags=["Movimientos de Inventario"])
+router = APIRouter(prefix="/movimientos-inventario", tags=["Movimientos de Inventario"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Movimientos de Inventario
 @router.get("/", response_model=List[MovimientoInventarioSchema])

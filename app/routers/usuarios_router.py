@@ -11,8 +11,9 @@ from app.services.usuario_service import (
     update_usuario as service_update_usuario,
     delete_usuario as service_delete_usuario,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+router = APIRouter(prefix="/usuarios", tags=["Usuarios"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Usuarios
 @router.get("/", response_model=List[UsuarioSchema])

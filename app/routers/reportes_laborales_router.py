@@ -11,8 +11,9 @@ from app.services.reporte_laboral_service import (
     update_reporte_laboral as service_update_reporte_laboral,
     delete_reporte_laboral as service_delete_reporte_laboral,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/reportes-laborales", tags=["Reportes Laborales"])
+router = APIRouter(prefix="/reportes-laborales", tags=["Reportes Laborales"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Reportes Laborales
 @router.get("/", response_model=List[ReporteLaboralSchema])

@@ -11,8 +11,9 @@ from app.services.pago_service import (
     update_pago as service_update_pago,
     delete_pago as service_delete_pago,
 )
+from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/pagos", tags=["Pagos"])
+router = APIRouter(prefix="/pagos", tags=["Pagos"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Pagos
 @router.get("/", response_model=List[PagoSchema])
