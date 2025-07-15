@@ -10,6 +10,8 @@ from app.services.proyecto_service import (
     create_proyecto as service_create_proyecto,
     update_proyecto as service_update_proyecto,
     delete_proyecto as service_delete_proyecto,
+    get_maquinas_by_proyecto,
+    get_aridos_by_proyecto,
 )
 from app.security.auth import get_current_user
 
@@ -52,3 +54,13 @@ def delete_proyecto(id: int, session: Session = Depends(get_db)):
         return {"message": "Proyecto eliminado"}
     else:
         return JSONResponse(content={"error": "Proyecto no encontrado"}, status_code=404)
+
+@router.get("/{id}/maquinas")
+def get_maquinas_proyecto(id: int, session: Session = Depends(get_db)):
+    # Obtener máquinas y horas semanales asignadas al proyecto
+    return get_maquinas_by_proyecto(session, id)
+
+@router.get("/{id}/aridos")
+def get_aridos_proyecto(id: int, session: Session = Depends(get_db)):
+    # Obtener áridos/materiales asociados al proyecto
+    return get_aridos_by_proyecto(session, id)

@@ -122,3 +122,28 @@ def delete_proyecto(db: Session, proyecto_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_maquinas_by_proyecto(db: Session, proyecto_id: int):
+    from app.db.models.maquina import Maquina
+    # Suponiendo que Maquina tiene proyecto_id y horas_uso
+    maquinas = db.query(Maquina).filter(Maquina.proyecto_id == proyecto_id).all()
+    # Aquí puedes ajustar si tienes una relación de asignación semanal
+    return [
+        {
+            "nombre": m.nombre,
+            "horas_semanales": m.horas_uso  # Cambia esto si tienes un campo específico
+        }
+        for m in maquinas
+    ]
+
+def get_aridos_by_proyecto(db: Session, proyecto_id: int):
+    from app.db.models.entrega_arido import EntregaArido
+    aridos = db.query(EntregaArido).filter(EntregaArido.proyecto_id == proyecto_id).all()
+    return [
+        {
+            "tipo_arido": a.tipo_arido,
+            "cantidad": a.cantidad,
+            "fecha_entrega": a.fecha_entrega
+        }
+        for a in aridos
+    ]
