@@ -17,7 +17,7 @@ class Proyecto(Base):
     contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)
     ubicacion = Column(String(50))
 
-    # Relación 1 a 1 con Contrato
+    # Relacion 1 a 1 con contratos
     contrato = relationship(
         "Contrato",
         back_populates="proyecto"
