@@ -5,13 +5,17 @@ from app.db.dependencies import get_db
 from app.services.login_service import login_user
 from app.security.auth import get_current_user
 from app.schemas.schemas import UsuarioOut
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 @router.post("/login")
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     print(f"🔐 LOGIN ATTEMPT - Username: {form_data.username}")
-    print(f"🔐 LOGIN ATTEMPT - Headers: {dict(request.headers)}")
     try:
         result = login_user(db, form_data.username, form_data.password)
         print(f"✅ LOGIN SUCCESS - Token: {result['access_token'][:50]}...")
