@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import UploadFile
+from datetime import datetime
+from sqlalchemy import extract, func
 import base64
 
 def safe_base64_encode(data):
@@ -125,3 +127,26 @@ def delete_gasto(db: Session, gasto_id: int) -> bool:
     except SQLAlchemyError as e:
         db.rollback()
         raise Exception(f"Error al eliminar gasto: {str(e)}")
+
+# Devuelve el total de gasto en combustible en el mes de la fecha actual
+def get_total_combustible_mes_actual(db: Session) -> int:
+    now = datetime.now()
+    total = db.query(func.sum(Gasto.importe_total)).filter(
+        Gasto.tipo == 'Combustible',
+        extract('year', Gasto.fecha) == now.year,
+        extract('month', Gasto.fecha) == now.month
+    ).scalar()
+    return int(total) if total else 0
+
+def get_all_gastos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[GastoOut]:
+    gastos = db.query(Gasto).offset(skip).limit(limit).all()
+    return [GastoOut(
+        id=g.id,
+        usuario_id=g.usuario_id,
+        maquina_id=g.maquina_id,
+        tipo=g.tipo,
+        importe_total=g.importe_total,
+        fecha=g.fecha,
+        descripcion=g.descripcion,
+        imagen=safe_base64_encode(g.imagen)
+    ) for g in gastos]

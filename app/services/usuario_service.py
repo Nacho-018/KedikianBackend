@@ -100,3 +100,7 @@ def get_usuario_by_email(db: Session, email: str) -> Optional[UsuarioOut]:
             hash_contrasena=u.hash_contrasena
         )
     return None
+
+def get_all_usuarios_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[UsuarioOut]:
+    usuarios = db.query(Usuario).offset(skip).limit(limit).all()
+    return [UsuarioOut.model_validate(u) for u in usuarios]

@@ -147,3 +147,23 @@ def get_aridos_by_proyecto(db: Session, proyecto_id: int):
         }
         for a in aridos
     ]
+
+# Devuelve la cantidad de proyectos activos
+def get_cantidad_proyectos_activos(db: Session) -> int:
+    return db.query(Proyecto).filter(Proyecto.estado == True).count()
+
+def get_all_proyectos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[ProyectoOut]:
+    proyectos = db.query(Proyecto).offset(skip).limit(limit).all()
+    return [ProyectoOut(
+        id=p.id,
+        nombre=p.nombre,
+        descripcion=p.descripcion,
+        estado=p.estado,
+        fecha_creacion=p.fecha_creacion,
+        fecha_inicio=p.fecha_inicio,
+        fecha_fin=p.fecha_fin,
+        progreso=p.progreso,
+        gerente=p.gerente,
+        contrato_id=p.contrato_id,
+        ubicacion=p.ubicacion
+    ) for p in proyectos]

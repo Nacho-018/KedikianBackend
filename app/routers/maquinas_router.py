@@ -10,6 +10,7 @@ from app.services.maquina_service import (
     create_maquina as service_create_maquina,
     update_maquina as service_update_maquina,
     delete_maquina as service_delete_maquina,
+    get_all_maquinas_paginated
 )
 from app.security.auth import get_current_user
 
@@ -47,3 +48,7 @@ def delete_maquina(id: int, session: Session = Depends(get_db)):
         return {"message": "Maquina eliminada"}
     else:
         return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+
+@router.get("/paginado")
+def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_maquinas_paginated(session, skip=skip, limit=limit)

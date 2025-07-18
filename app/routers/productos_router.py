@@ -10,6 +10,7 @@ from app.services.producto_service import (
     create_producto as service_create_producto,
     update_producto as service_update_producto,
     delete_producto as service_delete_producto,
+    get_all_productos_paginated
 )
 import os
 from app.security.auth import get_current_user
@@ -64,3 +65,7 @@ def delete_producto(id: int, session: Session = Depends(get_db)):
         return {"message": "Producto eliminado"}
     else:
         return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
+
+@router.get("/paginado")
+def productos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_productos_paginated(session, skip=skip, limit=limit)

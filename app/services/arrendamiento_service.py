@@ -63,3 +63,13 @@ def delete_arrendamiento(db: Session, arrendamiento_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_arrendamientos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[ArrendamientoOut]:
+    arrs = db.query(Arrendamiento).offset(skip).limit(limit).all()
+    return [ArrendamientoOut(
+        id=a.id,
+        proyecto_id=a.proyecto_id,
+        maquina_id=a.maquina_id,
+        horas_uso=a.horas_uso,
+        fecha_asignacion=a.fecha_asignacion
+    ) for a in arrs]

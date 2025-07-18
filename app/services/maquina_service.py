@@ -63,3 +63,7 @@ def delete_maquina(db: Session, maquina_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_maquinas_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[MaquinaOut]:
+    maquinas = db.query(Maquina).offset(skip).limit(limit).all()
+    return [MaquinaOut.model_validate(m) for m in maquinas]

@@ -10,6 +10,7 @@ from app.services.contrato_service import (
     create_contrato as service_create_contrato,
     update_contrato as service_update_contrato,
     delete_contrato as service_delete_contrato,
+    get_all_contratos_paginated
 )
 from app.security.auth import get_current_user
 
@@ -47,3 +48,7 @@ def delete_contrato(id: int, session: Session = Depends(get_db)):
         return {"message": "Contrato eliminado"}
     else:
         return JSONResponse(content={"error": "Contrato no encontrado"}, status_code=404)
+
+@router.get("/paginado")
+def contratos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_contratos_paginated(session, skip=skip, limit=limit)

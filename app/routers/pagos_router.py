@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import PagoSchema, PagoCreate
@@ -10,6 +9,7 @@ from app.services.pago_service import (
     create_pago as service_create_pago,
     update_pago as service_update_pago,
     delete_pago as service_delete_pago,
+    get_all_pagos_paginated
 )
 from app.security.auth import get_current_user
 
@@ -60,3 +60,7 @@ def delete_pago(id: int, session: Session = Depends(get_db)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar pago: {str(e)}")
+
+@router.get("/paginado")
+def pagos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_pagos_paginated(session, skip=skip, limit=limit)

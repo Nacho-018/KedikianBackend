@@ -9,6 +9,8 @@ from app.services.entrega_arido_service import (
     get_all_entregas_arido,
     update_entrega_arido,
     delete_entrega_arido,
+    get_suma_material_mes_actual,
+    get_all_entregas_arido_paginated
 )
 from app.security.auth import get_current_user
 
@@ -42,3 +44,13 @@ def delete(entrega_id: int, db: Session = Depends(get_db)):
     if not deleted:
         raise HTTPException(status_code=404, detail="Entrega de árido no encontrada")
     return deleted
+
+# Endpoint para suma de material entregado en el mes actual
+@router.get("/suma-mes-actual")
+def suma_material_mes_actual(db: Session = Depends(get_db)):
+    suma = get_suma_material_mes_actual(db)
+    return {"suma_material_mes_actual": suma}
+
+@router.get("/paginado")
+def entregas_arido_paginado(skip: int = 0, limit: int = 15, db: Session = Depends(get_db)):
+    return get_all_entregas_arido_paginated(db, skip=skip, limit=limit)

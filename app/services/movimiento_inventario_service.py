@@ -74,3 +74,7 @@ def delete_movimiento_inventario(db: Session, movimiento_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_movimientos_inventario_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[MovimientoInventarioOut]:
+    movimientos = db.query(MovimientoInventario).offset(skip).limit(limit).all()
+    return [MovimientoInventarioOut.model_validate(m) for m in movimientos]

@@ -70,3 +70,7 @@ def delete_contrato(db: Session, contrato_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_contratos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[ContratoOut]:
+    contratos = db.query(Contrato).offset(skip).limit(limit).all()
+    return [ContratoOut.model_validate(c) for c in contratos]

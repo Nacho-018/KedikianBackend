@@ -96,3 +96,7 @@ def delete_pago(db: Session, pago_id: int) -> bool:
     except SQLAlchemyError as e:
         db.rollback()
         raise Exception(f"Error al eliminar pago: {str(e)}")
+
+def get_all_pagos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[PagoOut]:
+    pagos = db.query(Pago).offset(skip).limit(limit).all()
+    return [PagoOut.model_validate(p) for p in pagos]

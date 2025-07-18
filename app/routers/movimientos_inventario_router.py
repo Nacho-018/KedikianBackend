@@ -10,6 +10,7 @@ from app.services.movimiento_inventario_service import (
     create_movimiento_inventario as service_create_movimiento_inventario,
     update_movimiento_inventario as service_update_movimiento_inventario,
     delete_movimiento_inventario as service_delete_movimiento_inventario,
+    get_all_movimientos_inventario_paginated
 )
 from app.security.auth import get_current_user
 
@@ -47,3 +48,7 @@ def delete_movimiento_inventario(id: int, session: Session = Depends(get_db)):
         return {"message": "Movimiento de inventario eliminado"}
     else:
         return JSONResponse(content={"error": "Movimiento de inventario no encontrado"}, status_code=404)
+
+@router.get("/paginado")
+def movimientos_inventario_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_movimientos_inventario_paginated(session, skip=skip, limit=limit)

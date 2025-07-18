@@ -12,6 +12,8 @@ from app.services.proyecto_service import (
     delete_proyecto as service_delete_proyecto,
     get_maquinas_by_proyecto,
     get_aridos_by_proyecto,
+    get_cantidad_proyectos_activos,
+    get_all_proyectos_paginated
 )
 from app.security.auth import get_current_user
 
@@ -64,3 +66,13 @@ def get_maquinas_proyecto(id: int, session: Session = Depends(get_db)):
 def get_aridos_proyecto(id: int, session: Session = Depends(get_db)):
     # Obtener áridos/materiales asociados al proyecto
     return get_aridos_by_proyecto(session, id)
+
+# Endpoint para cantidad de proyectos activos
+@router.get("/activos/cantidad")
+def cantidad_proyectos_activos(session: Session = Depends(get_db)):
+    cantidad = get_cantidad_proyectos_activos(session)
+    return {"cantidad_activos": cantidad}
+
+@router.get("/paginado")
+def proyectos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_proyectos_paginated(session, skip=skip, limit=limit)

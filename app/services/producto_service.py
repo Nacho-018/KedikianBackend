@@ -87,3 +87,7 @@ def delete_producto(db: Session, producto_id: int) -> bool:
         db.commit()
         return True
     return False
+
+def get_all_productos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[ProductoOut]:
+    productos = db.query(Producto).offset(skip).limit(limit).all()
+    return [ProductoOut.model_validate(p) for p in productos]

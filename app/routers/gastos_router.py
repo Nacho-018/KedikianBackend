@@ -10,12 +10,15 @@ from app.services.gasto_service import (
     create_gasto as service_create_gasto,
     update_gasto as service_update_gasto,
     delete_gasto as service_delete_gasto,
+    get_total_combustible_mes_actual,
+    get_all_gastos_paginated
 )
 from app.security.auth import get_current_user
 
 router = APIRouter(prefix="/gastos", tags=["Gastos"], dependencies=[Depends(get_current_user)])
 
 # Endpoints Gastos
+
 @router.get("/", response_model=List[GastoSchema])
 def get_gastos(session: Session = Depends(get_db)):
     return service_get_gastos(session)
@@ -94,3 +97,13 @@ def delete_gasto(id: int, session: Session = Depends(get_db)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar gasto: {str(e)}")
+
+# Endpoint para total de gasto en combustible en el mes actual
+@router.get("/combustible-mes-actual")
+def total_combustible_mes_actual(session: Session = Depends(get_db)):
+    total = get_total_combustible_mes_actual(session)
+    return {"total_combustible_mes_actual": total}
+
+@router.get("/paginado")
+def gastos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_gastos_paginated(session, skip=skip, limit=limit)

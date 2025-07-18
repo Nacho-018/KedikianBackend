@@ -10,6 +10,8 @@ from app.services.reporte_laboral_service import (
     create_reporte_laboral as service_create_reporte_laboral,
     update_reporte_laboral as service_update_reporte_laboral,
     delete_reporte_laboral as service_delete_reporte_laboral,
+    get_total_horas_mes_actual,
+    get_all_reportes_laborales_paginated
 )
 from app.security.auth import get_current_user
 
@@ -47,3 +49,13 @@ def delete_reporte_laboral(id: int, session: Session = Depends(get_db)):
         return {"message": "Reporte laboral eliminado"}
     else:
         return JSONResponse(content={"error": "Reporte laboral no encontrado"}, status_code=404)
+
+# Endpoint para total de horas del mes actual
+@router.get("/horas-mes-actual")
+def total_horas_mes_actual(session: Session = Depends(get_db)):
+    total = get_total_horas_mes_actual(session)
+    return {"total_horas_mes_actual": total}
+
+@router.get("/paginado")
+def reportes_laborales_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_reportes_laborales_paginated(session, skip=skip, limit=limit)
