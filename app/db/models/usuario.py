@@ -20,6 +20,6 @@ class Usuario(Base):
     movimientos_inventario = relationship("MovimientoInventario", back_populates="usuario")
     registros_horas = relationship("RegistroHoras", back_populates="operario")
     
-    # Timestamps
+    # TimeStamps
     created = Column(DateTime(timezone=True), server_default=func.now())
     updated = Column(DateTime(timezone=True), onupdate=func.now())
