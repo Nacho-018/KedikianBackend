@@ -11,7 +11,7 @@ class Maquina(Base):
     horas_uso = Column(Integer, default=0)
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"), nullable=True)
 
-    #Relaciones
+    # Relaciones
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")
     gastos = relationship("Gasto", back_populates="maquina")
     arrendamientos = relationship("Arrendamiento", back_populates="maquina")
