@@ -99,6 +99,7 @@ def get_usuario_by_email(db: Session, email: str) -> Optional[UsuarioOut]:
             fecha_creacion=u.fecha_creacion,
             hash_contrasena=u.hash_contrasena
         )
+    print(f"Usuario con email {email} no encontrado.")
     return None
 
 def get_all_usuarios_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[UsuarioOut]:

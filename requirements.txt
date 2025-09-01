@@ -7,3 +7,4 @@ passlib[bcrypt]
 pydantic
 pandas
 openpyxl
+psycopg2-binary

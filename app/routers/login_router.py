@@ -6,6 +6,7 @@ from app.services.login_service import login_user
 from app.security.auth import get_current_user
 from app.schemas.schemas import UsuarioOut
 from pydantic import BaseModel
+import base64
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -15,7 +16,9 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    print(f"🔐 LOGIN ATTEMPT - Username: {form_data.username}")
+    email_decoded = base64.b64decode(form_data.username).decode('utf-8')
+    print(f"🔐 LOGIN ATTEMPT - Username: {email_decoded}")
+
     try:
         result = login_user(db, form_data.username, form_data.password)
         print(f"✅ LOGIN SUCCESS - Token: {result['access_token'][:50]}...")
