@@ -419,8 +419,13 @@ class ResumenSueldoResponse(ResumenSueldoCreate):
 # Esquemas para endpoints de máquinas
 class RegistroHorasMaquinaCreate(BaseModel):
     horas: int
-    fecha: datetime
+    fecha: Union[datetime, str]  # Aceptar tanto datetime como string
     descripcion: Optional[str] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class HistorialProyectoOut(BaseModel):
     proyecto_id: int

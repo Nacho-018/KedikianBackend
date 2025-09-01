@@ -74,6 +74,8 @@ def get_all_maquinas_paginated(db: Session, skip: int = 0, limit: int = 15) -> L
     maquinas = db.query(Maquina).offset(skip).limit(limit).all()
     return [MaquinaOut.model_validate(m) for m in maquinas]
 
+from datetime import datetime
+
 def registrar_horas_maquina_proyecto(
     db: Session, 
     maquina_id: int, 
@@ -97,12 +99,17 @@ def registrar_horas_maquina_proyecto(
     if maquina.proyecto_id != proyecto_id:
         return None
     
+    # Convertir fecha si es string
+    fecha_asignacion = registro.fecha
+    if isinstance(fecha_asignacion, str):
+        fecha_asignacion = datetime.fromisoformat(fecha_asignacion.replace('Z', '+00:00'))
+    
     # Crear el reporte laboral
     reporte = ReporteLaboral(
         maquina_id=maquina_id,
         usuario_id=1,  # TODO: Obtener del usuario autenticado
-        fecha_asignacion=registro.fecha,
-        horas_turno=registro.fecha  # TODO: Ajustar según el modelo real
+        fecha_asignacion=fecha_asignacion,
+        horas_turno=registro.horas  # Corregido: usar las horas en lugar de la fecha
     )
     
     db.add(reporte)
@@ -116,7 +123,7 @@ def registrar_horas_maquina_proyecto(
     return {
         "mensaje": f"Se registraron {registro.horas} horas para la máquina {maquina.nombre} en el proyecto {proyecto.nombre}",
         "horas_totales": maquina.horas_uso,
-        "fecha_registro": registro.fecha
+        "fecha_registro": fecha_asignacion
     }
 
 def obtener_historial_proyectos_maquina(db: Session, maquina_id: int) -> List[HistorialProyectoOut]:

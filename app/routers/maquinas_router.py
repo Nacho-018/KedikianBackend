@@ -59,6 +59,20 @@ def delete_maquina(id: int, session: Session = Depends(get_db)):
 def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
     return get_all_maquinas_paginated(session, skip=skip, limit=limit)
 
+# Endpoint de prueba para debuggear
+@router.post("/{id}/proyectos/{proyecto_id}/horas-test", status_code=201)
+def registrar_horas_maquina_proyecto_test_endpoint(
+    id: int, 
+    proyecto_id: int, 
+    registro: dict, 
+    session: Session = Depends(get_db)
+):
+    """
+    Endpoint de prueba para debuggear el problema 422
+    """
+    print(f"DEBUG TEST: Recibiendo datos - id: {id}, proyecto_id: {proyecto_id}, registro: {registro}")
+    return {"message": "Datos recibidos correctamente", "data": registro}
+
 # Nuevos endpoints para gestión de proyectos y horas
 @router.post("/{id}/proyectos/{proyecto_id}/horas", status_code=201)
 def registrar_horas_maquina_proyecto_endpoint(
@@ -70,6 +84,7 @@ def registrar_horas_maquina_proyecto_endpoint(
     """
     Registra horas de uso de una máquina en un proyecto específico
     """
+    print(f"DEBUG: Recibiendo datos - id: {id}, proyecto_id: {proyecto_id}, registro: {registro}")
     resultado = registrar_horas_maquina_proyecto(session, id, proyecto_id, registro)
     if resultado:
         return resultado
