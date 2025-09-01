@@ -9,7 +9,7 @@ class ReporteLaboral(Base):
     maquina_id = Column(Integer, ForeignKey("maquina.id"))
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     fecha_asignacion = Column(DateTime)
-    horas_turno = Column(DateTime)
+    horas_turno = Column(Integer)
 
     # Relaciones
     maquina = relationship("Maquina", back_populates="reportes_laborales")

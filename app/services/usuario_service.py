@@ -35,7 +35,6 @@ def get_usuario(db: Session, usuario_id: int) -> Optional[UsuarioOut]:
 def create_usuario(db: Session, usuario: UsuarioCreate) -> UsuarioOut:
     # Convertir la lista de roles a string para guardar en la base de datos
     roles_str = ','.join(usuario.roles)
-    # Hashear la contraseña antes de guardar
     hashed_password = pwd_context.hash(usuario.hash_contrasena)
     nuevo_usuario = Usuario(
         nombre=usuario.nombre,

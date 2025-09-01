@@ -416,3 +416,40 @@ class ResumenSueldoResponse(ResumenSueldoCreate):
     class Config:
         from_attributes = True
 
+# Esquemas para endpoints de máquinas
+class RegistroHorasMaquinaCreate(BaseModel):
+    horas: int
+    fecha: Union[datetime, str]  # Aceptar tanto datetime como string
+    descripcion: Optional[str] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+class HistorialProyectoOut(BaseModel):
+    proyecto_id: int
+    proyecto_nombre: str
+    fecha_asignacion: datetime
+    fecha_retiro: Optional[datetime] = None
+    total_horas: int
+    estado: str  # "activo" o "finalizado"
+
+    class Config:
+        from_attributes = True
+
+class CambiarProyectoRequest(BaseModel):
+    nuevo_proyecto_id: int
+    fecha_cambio: datetime
+    motivo: Optional[str] = None
+
+class CambiarProyectoResponse(BaseModel):
+    maquina_id: int
+    proyecto_anterior_id: Optional[int] = None
+    proyecto_nuevo_id: int
+    fecha_cambio: datetime
+    mensaje: str
+
+    class Config:
+        from_attributes = True
+
