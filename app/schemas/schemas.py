@@ -433,7 +433,7 @@ class HistorialProyectoOut(BaseModel):
     fecha_asignacion: datetime
     fecha_retiro: Optional[datetime] = None
     total_horas: int
-    estado: str  # "activo" o "finalizado"
+    estado: str  
 
     class Config:
         from_attributes = True
