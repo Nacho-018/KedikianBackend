@@ -9,12 +9,14 @@ class Maquina(Base):
     nombre = Column(String(50))
     estado = Column(Boolean, default=True)
     horas_uso = Column(Integer, default=0)
+    horas_maquina = Column(Integer, default=0)
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"), nullable=True)
 
     # Relaciones
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")
     gastos = relationship("Gasto", back_populates="maquina")
     arrendamientos = relationship("Arrendamiento", back_populates="maquina")
+    mantenimientos = relationship("Mantenimiento", back_populates="maquina")
     
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())

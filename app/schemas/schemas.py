@@ -105,6 +105,7 @@ class MaquinaBase(BaseModel):
     nombre: str
     estado: bool
     horas_uso: int
+    horas_maquina: int
 
 class MaquinaCreate(MaquinaBase):
     pass
@@ -114,6 +115,7 @@ class MaquinaSchema(BaseModel):
     nombre: str
     estado: bool = True
     horas_uso: int = 0
+    horas_maquina: int = 0
     proyecto_id: Optional[int] = None
 
     class Config:
@@ -124,6 +126,7 @@ class MaquinaOut(BaseModel):
     nombre: str
     estado: bool = True
     horas_uso: int = 0
+    horas_maquina: int = 0
     proyecto_id: Optional[int] = None
 
     class Config:
@@ -449,6 +452,36 @@ class CambiarProyectoResponse(BaseModel):
     proyecto_nuevo_id: int
     fecha_cambio: datetime
     mensaje: str
+
+    class Config:
+        from_attributes = True
+
+# Mantenimiento
+class MantenimientoBase(BaseModel):
+    maquina_id: int
+    tipo_mantenimiento: str  # "preventivo", "correctivo", "predictivo"
+    descripcion: str
+    fecha_mantenimiento: datetime
+    horas_maquina: int
+    costo: Optional[float] = None
+    responsable: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class MantenimientoCreate(MantenimientoBase):
+    pass
+
+class MantenimientoSchema(MantenimientoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class MantenimientoOut(MantenimientoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
 
     class Config:
         from_attributes = True

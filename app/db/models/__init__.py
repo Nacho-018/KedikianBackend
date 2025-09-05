@@ -12,4 +12,5 @@ from .configuracion_tarifas import ConfiguracionTarifas
 from .registro_horas import RegistroHoras
 from .resumen_sueldo import ResumenSueldo
 from .entrega_arido import EntregaArido
+from .mantenimiento import Mantenimiento
 
