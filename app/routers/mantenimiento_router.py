@@ -10,7 +10,8 @@ from app.services.mantenimiento_service import (
     create_mantenimiento as service_create_mantenimiento,
     update_mantenimiento as service_update_mantenimiento,
     delete_mantenimiento as service_delete_mantenimiento,
-    get_all_mantenimientos_paginated
+    get_all_mantenimientos_paginated,
+    get_mantenimientos_maquina
 )
 from app.security.auth import get_current_user
 
@@ -51,3 +52,7 @@ def delete_mantenimiento(id: int, session: Session = Depends(get_db)):
 @router.get("/paginado")
 def mantenimientos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
     return get_all_mantenimientos_paginated(session, skip=skip, limit=limit)
+
+@router.get("/maquina/{maquina_id}")
+def mantenimientos_por_maquina(maquina_id: int, db: Session = Depends(get_db)):
+    return get_mantenimientos_maquina(db, maquina_id)

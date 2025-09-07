@@ -1,9 +1,41 @@
 from sqlalchemy.orm import Session
 from app.db.models.mantenimiento import Mantenimiento
 from app.db.models.maquina import Maquina
-from app.schemas.schemas import MantenimientoCreate, MantenimientoSchema
+from app.schemas.schemas import MantenimientoCreate, MantenimientoSchema, MantenimientoOut
 from typing import List, Optional
 from fastapi import HTTPException
+
+def get_all_mantenimientos_paginated(db: Session, skip: int = 0, limit: int = 15) -> List[MantenimientoOut]:
+    mantenimientos = db.query(Mantenimiento).offset(skip).limit(limit).all()
+    return [MantenimientoOut(
+        id=m.id,
+        maquina_id=m.maquina_id,
+        tipo_mantenimiento=m.tipo_mantenimiento,
+        descripcion=m.descripcion,
+        fecha_mantenimiento=m.fecha_mantenimiento,
+        horas_maquina=m.horas_maquina,
+        costo=m.costo,
+        responsable=m.responsable,
+        observaciones=m.observaciones,
+        created=m.created,
+        updated=m.updated
+    ) for m in mantenimientos]
+
+def get_mantenimientos(db: Session) -> List[MantenimientoOut]:
+    mantenimientos = db.query(Mantenimiento).all()
+    return [MantenimientoOut(
+        id=m.id,
+        maquina_id=m.maquina_id,
+        tipo_mantenimiento=m.tipo_mantenimiento,
+        descripcion=m.descripcion,
+        fecha_mantenimiento=m.fecha_mantenimiento,
+        horas_maquina=m.horas_maquina,
+        costo=m.costo,
+        responsable=m.responsable,
+        observaciones=m.observaciones,
+        created=m.created,
+        updated=m.updated
+    ) for m in mantenimientos]
 
 def get_mantenimientos_maquina(session: Session, maquina_id: int) -> List[MantenimientoSchema]:
     """Obtiene todos los mantenimientos de una máquina específica"""

@@ -7,7 +7,7 @@ class Mantenimiento(Base):
     __tablename__ = "mantenimiento"
     id = Column(Integer, primary_key=True, autoincrement=True)
     maquina_id = Column(Integer, ForeignKey("maquina.id"), nullable=False)
-    tipo_mantenimiento = Column(String(50), nullable=False)  # "preventivo", "correctivo", "predictivo"
+    tipo_mantenimiento = Column(String(50), nullable=False)
     descripcion = Column(Text, nullable=False)
     fecha_mantenimiento = Column(DateTime(timezone=True), nullable=False)
     horas_maquina = Column(Integer, nullable=False)
