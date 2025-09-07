@@ -17,7 +17,7 @@ from app.security.auth import get_current_user
 
 router = APIRouter(prefix="/reportes-laborales", tags=["Reportes Laborales"], dependencies=[Depends(get_current_user)])
 
-# Endpoints Reportes Laborales
+
 @router.get("/", response_model=List[ReporteLaboralSchema])
 def get_reportes_laborales(session: Session = Depends(get_db)):
     return service_get_reportes_laborales(session)
