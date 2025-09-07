@@ -2,6 +2,32 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List, Optional, Union
 
+# Mantenimiento
+class MantenimientoBase(BaseModel):
+    maquina_id: int
+    tipo: Optional[str] = None
+    fecha: datetime
+    descripcion: Optional[str] = None
+
+class MantenimientoCreate(MantenimientoBase):
+    pass
+
+class MantenimientoSchema(MantenimientoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class MantenimientoOut(MantenimientoBase):
+    id: Optional[int] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 # Usuario
 class UsuarioBase(BaseModel):
     nombre: str

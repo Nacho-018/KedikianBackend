@@ -20,7 +20,8 @@ from app.routers import (
     excel_router,
     entrega_arido_router,
     login_router,
-    aridos_router
+    aridos_router,
+    mantenimiento_router
 )
 
 @asynccontextmanager
@@ -66,6 +67,7 @@ app.include_router(excel_router.router, prefix="/v1")
 app.include_router(entrega_arido_router.router, prefix="/v1")
 app.include_router(login_router.router, prefix="/v1")
 app.include_router(aridos_router.router, prefix="/v1")
+app.include_router(mantenimiento_router.router, prefix="/v1")
 
 # Debug al final del archivo, después de incluir routers
 def debug_routes():

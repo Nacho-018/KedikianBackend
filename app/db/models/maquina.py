@@ -15,6 +15,7 @@ class Maquina(Base):
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")
     gastos = relationship("Gasto", back_populates="maquina")
     arrendamientos = relationship("Arrendamiento", back_populates="maquina")
+    mantenimientos = relationship("Mantenimiento", back_populates="maquina")
     
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())
