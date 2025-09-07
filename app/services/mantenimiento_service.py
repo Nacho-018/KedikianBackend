@@ -63,6 +63,9 @@ def create_mantenimiento(session: Session, mantenimiento: MantenimientoCreate) -
     session.commit()
     session.refresh(db_mantenimiento)
     
+    if maquina.horas_maquina is None:
+        maquina.horas_maquina = 0
+        
     # Actualizar las horas de máquina
     maquina.horas_maquina += mantenimiento.horas_maquina
     session.commit()
