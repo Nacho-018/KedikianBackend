@@ -104,6 +104,9 @@ def update_mantenimiento(session: Session, mantenimiento_id: int, mantenimiento_
     # Ajustar las horas de máquina
     maquina = session.query(Maquina).filter(Maquina.id == db_mantenimiento.maquina_id).first()
     if maquina:
+         if maquina.horas_maquina is None:
+        maquina.horas_maquina = 0
+
         maquina.horas_maquina = maquina.horas_maquina - horas_anteriores + mantenimiento_update.horas_maquina
         session.commit()
     
@@ -121,6 +124,10 @@ def delete_mantenimiento(session: Session, mantenimiento_id: int) -> bool:
     # Ajustar las horas de máquina antes de eliminar
     maquina = session.query(Maquina).filter(Maquina.id == db_mantenimiento.maquina_id).first()
     if maquina:
+        
+         if maquina.horas_maquina is None:
+        maquina.horas_maquina = 0
+
         maquina.horas_maquina -= db_mantenimiento.horas_maquina
         session.commit()
     
