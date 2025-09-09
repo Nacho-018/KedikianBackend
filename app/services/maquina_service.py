@@ -96,8 +96,8 @@ def registrar_horas_maquina_proyecto(
         return None
     
     # Verificar que la máquina está asignada al proyecto
-    if maquina.proyecto_id != proyecto_id:
-        return None
+    #if maquina.proyecto_id != proyecto_id:
+    #    return None
     
     # Convertir fecha si es string
     fecha_asignacion = registro.fecha
