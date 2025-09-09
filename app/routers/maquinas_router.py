@@ -125,3 +125,34 @@ def cambiar_proyecto_maquina_endpoint(
             content={"error": "Máquina o proyecto no encontrados"}, 
             status_code=404
         )
+
+@router.post("/registrar-horas", status_code=201)
+def registrar_horas_endpoint(
+    maquina_id: int,
+    proyecto_id: int,
+    horas_trabajadas: float,
+    fecha: str,
+    session: Session = Depends(get_db)
+):
+    """
+    Registra las horas trabajadas de una máquina en un proyecto específico
+    """
+    registro = RegistroHorasMaquinaCreate(
+        horas=horas_trabajadas,
+        fecha=fecha
+    )
+    
+    resultado = registrar_horas_maquina_proyecto(
+        session, 
+        maquina_id, 
+        proyecto_id, 
+        registro
+    )
+    
+    if resultado:
+        return resultado
+    else:
+        return JSONResponse(
+            content={"error": "Máquina, proyecto no encontrados o máquina no asignada al proyecto"}, 
+            status_code=404
+        )
