@@ -107,6 +107,7 @@ def registrar_horas_maquina_proyecto(
     # Crear el reporte laboral
     reporte = ReporteLaboral(
         maquina_id=maquina_id,
+        proyecto_id=proyecto_id,
         usuario_id=1,  # TODO: Obtener del usuario autenticado
         fecha_asignacion=fecha_asignacion,
         horas_turno=registro.horas  # Corregido: usar las horas en lugar de la fecha
