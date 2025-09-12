@@ -17,9 +17,15 @@ router = APIRouter(prefix="/aridos", tags=["Áridos"])
 async def get_tipos_aridos():
     """Obtiene los tipos de áridos disponibles"""
     tipos = [
-        {"id": 1, "nombre": "Arena Fina", "tipo": "árido", "unidadMedida": "m3"},
-        {"id": 2, "nombre": "Granza", "tipo": "árido", "unidadMedida": "m3"},
-        {"id": 3, "nombre": "Arena Comun", "tipo": "árido", "unidadMedida": "m3"}
+        { id: -1, nombre: 'Arena Fina', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -2, nombre: 'Granza', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -3, nombre: 'Arena Comun', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -4, nombre: 'Relleno', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -5, nombre: 'Tierra Negra', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -6, nombre: 'Piedra', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -7, nombre: '0.20', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -8, nombre: 'blinder', tipo: 'árido', unidadMedida: 'm3' },
+        { id: -9, nombre: 'Arena Lavada', tipo: 'árido', unidadMedida: 'm3' }
     ]
     return tipos
 
