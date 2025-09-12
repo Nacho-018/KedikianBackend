@@ -80,7 +80,8 @@ def registrar_horas_maquina_proyecto(
     db: Session, 
     maquina_id: int, 
     proyecto_id: int, 
-    registro: RegistroHorasMaquinaCreate
+    registro: RegistroHorasMaquinaCreate,
+    usuario_id: int
 ) -> Optional[dict]:
     """
     Registra horas de uso de una máquina en un proyecto específico
@@ -108,7 +109,7 @@ def registrar_horas_maquina_proyecto(
     reporte = ReporteLaboral(
         maquina_id=maquina_id,
         proyecto_id=proyecto_id,
-        usuario_id=1,  # TODO: Obtener del usuario autenticado
+        usuario_id=usuario_id,  # TODO: Obtener del usuario autenticado
         fecha_asignacion=fecha_asignacion,
         horas_turno=registro.horas  # Corregido: usar las horas en lugar de la fecha
     )

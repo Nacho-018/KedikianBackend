@@ -260,7 +260,7 @@ class ReporteLaboralBase(BaseModel):
     maquina_id: Optional[int] = None
     usuario_id: Optional[int] = None
     fecha_asignacion: datetime
-    horas_turno: datetime
+    horas_turno: int
 
 class ReporteLaboralCreate(ReporteLaboralBase):
     pass

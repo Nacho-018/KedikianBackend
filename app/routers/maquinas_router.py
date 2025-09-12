@@ -4,7 +4,7 @@ from typing import List
 from app.db.dependencies import get_db
 from app.schemas.schemas import (
     MaquinaSchema, RegistroHorasMaquinaCreate, 
-    HistorialProyectoOut, CambiarProyectoRequest, CambiarProyectoResponse
+    HistorialProyectoOut, CambiarProyectoRequest, CambiarProyectoResponse, UsuarioOut
 )
 from sqlalchemy.orm import Session
 from app.services.maquina_service import (
@@ -18,10 +18,10 @@ from app.services.maquina_service import (
     obtener_historial_proyectos_maquina,
     cambiar_proyecto_maquina
 )
-from app.db.models import ReporteLaboral  # <-- agregado para actualizar/eliminar registros
+from app.db.models import ReporteLaboral
 from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/maquinas", tags=["Maquinas"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/maquinas", tags=["Maquinas"])
 
 # ==================== CRUD MÁQUINAS ====================
 
@@ -68,12 +68,13 @@ def registrar_horas_maquina_proyecto_endpoint(
     id: int, 
     proyecto_id: int, 
     registro: RegistroHorasMaquinaCreate, 
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
+    current_user: UsuarioOut = Depends(get_current_user)
 ):
     """
     Registra horas de uso de una máquina en un proyecto específico
     """
-    resultado = registrar_horas_maquina_proyecto(session, id, proyecto_id, registro)
+    resultado = registrar_horas_maquina_proyecto(session, id, proyecto_id, registro, current_user.id)
     if resultado:
         return resultado
     else:
@@ -88,11 +89,7 @@ def obtener_horas_maquina_en_proyecto(
     proyecto_id: int,
     session: Session = Depends(get_db)
 ):
-    """
-    Obtiene todas las horas trabajadas de una máquina en un proyecto específico
-    """
     historial = obtener_historial_proyectos_maquina(session, id)
-
     if historial is None:
         return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
 
@@ -113,9 +110,6 @@ def obtener_historial_proyectos_maquina_endpoint(
     id: int, 
     session: Session = Depends(get_db)
 ):
-    """
-    Obtiene el historial de proyectos de una máquina
-    """
     historial = obtener_historial_proyectos_maquina(session, id)
     if historial is not None:
         return historial
@@ -130,9 +124,6 @@ def cambiar_proyecto_maquina_endpoint(
     cambio: CambiarProyectoRequest, 
     session: Session = Depends(get_db)
 ):
-    """
-    Cambia el proyecto asignado a una máquina
-    """
     resultado = cambiar_proyecto_maquina(session, id, cambio)
     if resultado:
         return resultado
@@ -151,9 +142,6 @@ def actualizar_registro_horas(
     datos: RegistroHorasMaquinaCreate,
     session: Session = Depends(get_db)
 ):
-    """
-    Actualiza un registro específico de horas de una máquina
-    """
     registro = session.query(ReporteLaboral).filter(
         ReporteLaboral.id == registro_id,
         ReporteLaboral.maquina_id == id
@@ -183,9 +171,6 @@ def eliminar_registro_horas(
     registro_id: int,
     session: Session = Depends(get_db)
 ):
-    """
-    Elimina un registro específico de horas de una máquina
-    """
     registro = session.query(ReporteLaboral).filter(
         ReporteLaboral.id == registro_id,
         ReporteLaboral.maquina_id == id
