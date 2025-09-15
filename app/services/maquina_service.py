@@ -101,26 +101,42 @@ def registrar_horas_maquina_proyecto(
         # Convertir fecha si viene como string
         fecha_asignacion = registro.fecha
         if isinstance(fecha_asignacion, str):
-            # Si la fecha viene sin hora, agregar 00:00:00
-            if 'T' not in fecha_asignacion:
-                fecha_asignacion = f"{fecha_asignacion}T00:00:00"
-            fecha_asignacion = datetime.fromisoformat(fecha_asignacion)
+            try:
+                # Si la fecha viene sin hora, agregar 00:00:00
+                if 'T' not in fecha_asignacion:
+                    fecha_asignacion = f"{fecha_asignacion}T00:00:00"
+                fecha_asignacion = datetime.fromisoformat(fecha_asignacion)
+            except Exception as e:
+                print(f"Error al procesar la fecha: {str(e)}")
+                fecha_asignacion = datetime.now()
 
-        # Crear reporte laboral
-        reporte = ReporteLaboral(
-            maquina_id=maquina_id,
-            proyecto_id=proyecto_id,
-            usuario_id=usuario_id,
-            fecha_asignacion=fecha_asignacion,
-            horas_turno=registro.horas
-        )
+        # Crear reporte laboral con solo los campos que sabemos que existen
+        reporte_data = {
+            'maquina_id': maquina_id,
+            'usuario_id': usuario_id,
+            'fecha_asignacion': fecha_asignacion,
+            'horas_turno': registro.horas
+        }
         
         try:
+            # Crear el reporte
+            reporte = ReporteLaboral(**reporte_data)
+            
+            try:
+                # Intentar asignar proyecto_id
+                reporte.proyecto_id = proyecto_id
+            except Exception as e:
+                print(f"No se pudo asignar proyecto_id: {str(e)}")
+            
+            # Agregar y guardar el reporte
             db.add(reporte)
             
             # Actualizar horas de uso de la máquina
+            if maquina.horas_uso is None:
+                maquina.horas_uso = 0
             maquina.horas_uso += registro.horas
 
+            # Commit de los cambios
             db.commit()
             db.refresh(reporte)
             

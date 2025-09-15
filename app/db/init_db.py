@@ -73,9 +73,28 @@ async def init_db():
     """
     Inicializa la base de datos y asegura que exista la columna proyecto_id
     """
-    print("Iniciando configuración de la base de datos...")
-    Base.metadata.create_all(bind=engine)
-    print("Tablas base creadas")
-    
-    # Agregar la columna proyecto_id
-    await add_proyecto_id_column()
+    try:
+        print("🚀 Iniciando configuración de la base de datos...")
+        
+        # Crear todas las tablas si no existen
+        Base.metadata.create_all(bind=engine)
+        print("✅ Tablas base creadas")
+        
+        # Verificar la estructura actual de la tabla
+        with engine.connect() as connection:
+            result = connection.execute(text("""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = 'reporte_laboral'
+                ORDER BY ordinal_position;
+            """))
+            columns = result.fetchall()
+            print("📊 Estructura actual de reporte_laboral:", columns)
+        
+        # Agregar la columna proyecto_id
+        await add_proyecto_id_column()
+        print("✅ Proceso de inicialización completado")
+        
+    except Exception as e:
+        print(f"❌ Error durante la inicialización: {str(e)}")
+        raise e
