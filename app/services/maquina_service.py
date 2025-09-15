@@ -7,9 +7,10 @@ from app.schemas.schemas import (
     CambiarProyectoRequest, CambiarProyectoResponse
 )
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, text
 from typing import List, Optional
 from datetime import datetime
+from sqlalchemy.schema import CreateTable
 
 def get_maquinas(db: Session) -> List[MaquinaOut]:
     maquinas = db.query(Maquina).all()
@@ -28,7 +29,7 @@ def get_maquina(db: Session, maquina_id: int) -> Optional[MaquinaOut]:
             id=m.id,
             nombre=m.nombre,
             estado=m.estado,
-            horas_uso=m.horas_uso,
+            horas_uso=m.horas_uso, 
             proyecto_id=m.proyecto_id
         )
     return None
@@ -86,47 +87,57 @@ def registrar_horas_maquina_proyecto(
     """
     Registra horas de uso de una máquina en un proyecto específico
     """
-    # Verificar que la máquina existe
-    maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
-    if not maquina:
-        return None
-    
-    # Verificar que el proyecto existe
-    proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
-    if not proyecto:
-        return None
-    
-    # Verificar que la máquina está asignada al proyecto
-    #if maquina.proyecto_id != proyecto_id:
-    #    return None
-    
-    # Convertir fecha si es string
-    fecha_asignacion = registro.fecha
-    if isinstance(fecha_asignacion, str):
-        fecha_asignacion = datetime.fromisoformat(fecha_asignacion.replace('Z', '+00:00'))
-    
-    # Crear el reporte laboral
-    reporte = ReporteLaboral(
-        maquina_id=maquina_id,
-        proyecto_id=proyecto_id,
-        usuario_id=usuario_id,  # TODO: Obtener del usuario autenticado
-        fecha_asignacion=fecha_asignacion,
-        horas_turno=registro.horas  # Corregido: usar las horas en lugar de la fecha
-    )
-    
-    db.add(reporte)
-    
-    # Actualizar las horas de uso de la máquina
-    maquina.horas_uso += registro.horas
-    
-    db.commit()
-    db.refresh(reporte)
-    
-    return {
-        "mensaje": f"Se registraron {registro.horas} horas para la máquina {maquina.nombre} en el proyecto {proyecto.nombre}",
-        "horas_totales": maquina.horas_uso,
-        "fecha_registro": fecha_asignacion
-    }
+    try:
+        # Buscar la máquina
+        maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
+        if not maquina:
+            raise Exception(f"Máquina con ID {maquina_id} no encontrada")
+        
+        # Buscar el proyecto
+        proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+        if not proyecto:
+            raise Exception(f"Proyecto con ID {proyecto_id} no encontrado")
+        
+        # Convertir fecha si viene como string
+        fecha_asignacion = registro.fecha
+        if isinstance(fecha_asignacion, str):
+            # Si la fecha viene sin hora, agregar 00:00:00
+            if 'T' not in fecha_asignacion:
+                fecha_asignacion = f"{fecha_asignacion}T00:00:00"
+            fecha_asignacion = datetime.fromisoformat(fecha_asignacion)
+
+        # Crear reporte laboral
+        reporte = ReporteLaboral(
+            maquina_id=maquina_id,
+            proyecto_id=proyecto_id,
+            usuario_id=usuario_id,
+            fecha_asignacion=fecha_asignacion,
+            horas_turno=registro.horas
+        )
+        
+        try:
+            db.add(reporte)
+            
+            # Actualizar horas de uso de la máquina
+            maquina.horas_uso += registro.horas
+
+            db.commit()
+            db.refresh(reporte)
+            
+            return {
+                "mensaje": f"Se registraron {registro.horas} horas para la máquina {maquina.nombre} en el proyecto {proyecto.nombre}",
+                "horas_totales": maquina.horas_uso,
+                "fecha_registro": fecha_asignacion
+            }
+            
+        except Exception as e:
+            db.rollback()
+            print(f"Error creando el reporte: {str(e)}")
+            raise Exception(f"Error al crear el reporte: {str(e)}")
+            
+    except Exception as e:
+        print(f"Error en el proceso: {str(e)}")
+        raise Exception(str(e))
 
 def obtener_historial_proyectos_maquina(db: Session, maquina_id: int) -> List[HistorialProyectoOut]:
     """

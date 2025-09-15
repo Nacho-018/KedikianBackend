@@ -63,43 +63,59 @@ def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends
 
 # ==================== HORAS EN PROYECTOS ====================
 
-@router.post("/{id}/proyectos/{proyecto_id}/horas", status_code=201)
+@router.post("/{maquina_id}/proyectos/{proyecto_id}/horas", status_code=201)
 def registrar_horas_maquina_proyecto_endpoint(
-    id: int, 
-    proyecto_id: int, 
-    registro: RegistroHorasMaquinaCreate, 
+    maquina_id: int,
+    proyecto_id: int,
+    registro: RegistroHorasMaquinaCreate,
     session: Session = Depends(get_db),
     current_user: UsuarioOut = Depends(get_current_user)
 ):
     """
     Registra horas de uso de una máquina en un proyecto específico
     """
-    resultado = registrar_horas_maquina_proyecto(session, id, proyecto_id, registro, current_user.id)
-    if resultado:
-        return resultado
-    else:
-        return JSONResponse(
-            content={"error": "Máquina, proyecto no encontrados o máquina no asignada al proyecto"}, 
-            status_code=404
+    try:
+        print(f"Recibido registro: {registro.model_dump()}")
+        resultado = registrar_horas_maquina_proyecto(
+            db=session,
+            maquina_id=maquina_id,
+            proyecto_id=proyecto_id,
+            registro=registro,
+            usuario_id=current_user.id
         )
 
-@router.get("/{id}/proyectos/{proyecto_id}/horas", response_model=List[HistorialProyectoOut])
+        if resultado:
+            return resultado
+        else:
+            return JSONResponse(
+                content={"error": "No se pudo registrar las horas"}, 
+                status_code=400
+            )
+    except ValueError as ve:
+        return JSONResponse(
+            content={"error": f"Error de validación: {str(ve)}"},
+            status_code=400
+        )
+    except Exception as e:
+        print(f"Error en endpoint: {str(e)}")
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@router.get("/{maquina_id}/proyectos/{proyecto_id}/horas", response_model=List[HistorialProyectoOut])
 def obtener_horas_maquina_en_proyecto(
-    id: int,
+    maquina_id: int,
     proyecto_id: int,
     session: Session = Depends(get_db)
 ):
-    historial = obtener_historial_proyectos_maquina(session, id)
-    if historial is None:
+    historial = obtener_historial_proyectos_maquina(session, maquina_id)
+    if not historial:
         return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
 
     historial_filtrado = [h for h in historial if h.proyecto_id == proyecto_id]
-
     if not historial_filtrado:
-        return JSONResponse(
-            content={"error": "No se encontraron registros de horas para este proyecto"},
-            status_code=404
-        )
+        return JSONResponse(content={"error": "No se encontraron registros de horas para este proyecto"}, status_code=404)
 
     return historial_filtrado
 
