@@ -227,3 +227,37 @@ def cambiar_proyecto_maquina(
         fecha_cambio=cambio.fecha_cambio,
         mensaje=f"Máquina {maquina.nombre} reasignada del proyecto {proyecto_anterior_id} al proyecto {nuevo_proyecto.nombre}"
     )
+    
+def obtener_historial_horas_maquina(db: Session, maquina_id: int) -> List[HistorialHorasOut]:
+    """
+    Obtiene el historial individual de horas trabajadas de una máquina
+    """
+    # Verificar que la máquina existe
+    maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
+    if not maquina:
+        return []
+    
+    # Obtener todos los reportes laborales de la máquina que tienen proyecto asignado
+    reportes = db.query(ReporteLaboral).filter(
+        and_(
+            ReporteLaboral.maquina_id == maquina_id,
+            ReporteLaboral.proyecto_id.is_not(None)  # Solo registros con proyecto
+        )
+    ).order_by(desc(ReporteLaboral.fecha_asignacion)).all()
+    
+    historial = []
+    
+    for reporte in reportes:
+        historial_item = HistorialHorasOut(
+            id=reporte.id,
+            maquina_id=reporte.maquina_id,
+            proyecto_id=reporte.proyecto_id,
+            horas_trabajadas=reporte.horas_turno or 0,
+            fecha=reporte.fecha_asignacion,
+            usuario_id=reporte.usuario_id,
+            created_at=reporte.created,
+            updated_at=reporte.updated
+        )
+        historial.append(historial_item)
+    
+    return historial

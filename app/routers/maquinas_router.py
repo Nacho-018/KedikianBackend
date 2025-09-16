@@ -121,14 +121,14 @@ def obtener_horas_maquina_en_proyecto(
 
 # ==================== HISTORIAL DE PROYECTOS ====================
 
-@router.get("/{id}/historial-proyectos", response_model=List[HistorialProyectoOut])
+@router.get("/{id}/historial-proyectos", response_model=List[HistorialHorasOut])
 def obtener_historial_proyectos_maquina_endpoint(
     id: int, 
     session: Session = Depends(get_db)
 ):
-    historial = obtener_historial_proyectos_maquina(session, id)
-    if historial is not None:
-        return historial
+    """Obtiene el historial individual de horas trabajadas de una máquina"""
+    historial = obtener_historial_horas_maquina(session, id)
+    return historial
     else:
         return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
 

@@ -468,6 +468,20 @@ class HistorialProyectoOut(BaseModel):
     class Config:
         from_attributes = True
 
+class HistorialHorasOut(BaseModel):
+    """Schema para registros individuales de horas trabajadas"""
+    id: int
+    maquina_id: int
+    proyecto_id: Optional[int] = None
+    horas_trabajadas: int  # mapea desde horas_turno
+    fecha: datetime  # mapea desde fecha_asignacion
+    usuario_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+        
 class CambiarProyectoRequest(BaseModel):
     nuevo_proyecto_id: int
     fecha_cambio: datetime
