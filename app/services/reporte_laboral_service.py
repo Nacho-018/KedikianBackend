@@ -13,6 +13,7 @@ def get_reportes_laborales(db: Session) -> List[ReporteLaboralOut]:
         id=r.id,
         maquina_id=r.maquina_id,
         usuario_id=r.usuario_id,
+        proyecto_id=r.proyecto_id,
         fecha_asignacion=r.fecha_asignacion,
         horas_turno=r.horas_turno
     ) for r in reportes]
@@ -24,6 +25,7 @@ def get_reporte_laboral(db: Session, reporte_id: int) -> Optional[ReporteLaboral
             id=r.id,
             maquina_id=r.maquina_id,
             usuario_id=r.usuario_id,
+            proyecto_id=r.proyecto_id,
             fecha_asignacion=r.fecha_asignacion,
             horas_turno=r.horas_turno
         )
@@ -38,6 +40,7 @@ def create_reporte_laboral(db: Session, reporte: ReporteLaboralCreate) -> Report
         id=nuevo_reporte.id,
         maquina_id=nuevo_reporte.maquina_id,
         usuario_id=nuevo_reporte.usuario_id,
+        proyecto_id=nuevo_reporte.proyecto_id,
         fecha_asignacion=nuevo_reporte.fecha_asignacion,
         horas_turno=nuevo_reporte.horas_turno
     )
@@ -53,6 +56,7 @@ def update_reporte_laboral(db: Session, reporte_id: int, reporte: ReporteLaboral
             id=existing_reporte.id,
             maquina_id=existing_reporte.maquina_id,
             usuario_id=existing_reporte.usuario_id,
+            proyecto_id=existing_reporte.proyecto_id,
             fecha_asignacion=existing_reporte.fecha_asignacion,
             horas_turno=existing_reporte.horas_turno
         )
@@ -81,6 +85,7 @@ def get_all_reportes_laborales_paginated(db: Session, skip: int = 0, limit: int 
         id=r.id,
         maquina_id=r.maquina_id,
         usuario_id=r.usuario_id,
+        proyecto_id=r.proyecto_id,
         fecha_asignacion=r.fecha_asignacion,
         horas_turno=r.horas_turno
     ) for r in reportes]

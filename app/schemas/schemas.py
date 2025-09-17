@@ -259,6 +259,7 @@ class ProyectoOut(ProyectoBase):
 class ReporteLaboralBase(BaseModel):
     maquina_id: Optional[int] = None
     usuario_id: Optional[int] = None
+    proyecto_id: Optional[int] = None
     fecha_asignacion: datetime
     horas_turno: int
 
