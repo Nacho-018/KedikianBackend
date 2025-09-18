@@ -259,7 +259,7 @@ class ProyectoOut(ProyectoBase):
 class ReporteLaboralBase(BaseModel):
     maquina_id: Optional[int] = None
     usuario_id: Optional[int] = None
-    proyecto_id: Optional[int] = None
+    proyecto_id: Optional[int] = Field(None, description="ID del proyecto asignado")  # ← Field para forzar inclusión
     fecha_asignacion: datetime
     horas_turno: int
 
@@ -277,6 +277,45 @@ class ReporteLaboralOut(ReporteLaboralBase):
 
     class Config:
         from_attributes = True
+        # ✅ SOLUCIÓN PRINCIPAL: Incluir campos None en la serialización JSON
+        validate_assignment = True
+
+    # ✅ SOLUCIÓN: Sobrescribir dict() para incluir campos None
+    def dict(self, **kwargs):
+        """Forzar inclusión de todos los campos, incluso si son None"""
+        kwargs.setdefault('exclude_none', False)  # No excluir campos None
+        return super().dict(**kwargs)
+    
+    # ✅ ALTERNATIVA: Sobrescribir model_dump para Pydantic v2 (si usas v2)
+    def model_dump(self, **kwargs):
+        """Forzar inclusión de todos los campos para Pydantic v2"""
+        kwargs.setdefault('exclude_none', False)
+        return super().model_dump(**kwargs)
+
+# ✅ CLASE ALTERNATIVA: Si las anteriores no funcionan, usa esta
+class ReporteLaboralAPIResponse(BaseModel):
+    """Clase específica para respuestas de API que garantiza incluir todos los campos"""
+    id: Optional[int] = None
+    maquina_id: Optional[int] = None
+    usuario_id: Optional[int] = None
+    proyecto_id: Optional[int] = None  # ← Siempre incluido
+    fecha_asignacion: datetime
+    horas_turno: int
+
+    class Config:
+        from_attributes = True
+        
+    @classmethod
+    def from_orm_manual(cls, orm_obj):
+        """Método manual para asegurar que todos los campos se incluyan"""
+        return cls(
+            id=orm_obj.id,
+            maquina_id=orm_obj.maquina_id,
+            usuario_id=orm_obj.usuario_id,
+            proyecto_id=orm_obj.proyecto_id,  # ← Incluir explícitamente
+            fecha_asignacion=orm_obj.fecha_asignacion,
+            horas_turno=orm_obj.horas_turno
+        )
 
 
 class ConfiguracionTarifasBase(BaseModel):
