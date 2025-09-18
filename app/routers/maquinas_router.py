@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from typing import List
+from typing import List, Optional
+from sqlalchemy.orm import Session
+
 from app.db.dependencies import get_db
 from app.schemas.schemas import (
-    MaquinaSchema, RegistroHorasMaquinaCreate, 
-    HistorialProyectoOut, CambiarProyectoRequest, CambiarProyectoResponse, UsuarioOut
+    MaquinaSchema, MaquinaCreate, RegistroHorasMaquinaCreate,
+    HistorialHorasOut, EstadisticasHorasOut, UsuarioOut
 )
-from sqlalchemy.orm import Session
 from app.services.maquina_service import (
     get_maquinas as service_get_maquinas,
     get_maquina as service_get_maquina,
@@ -14,9 +15,9 @@ from app.services.maquina_service import (
     update_maquina as service_update_maquina,
     delete_maquina as service_delete_maquina,
     get_all_maquinas_paginated,
-    registrar_horas_maquina_proyecto,
-    obtener_historial_proyectos_maquina,
-    cambiar_proyecto_maquina
+    registrar_horas_maquina,
+    obtener_historial_horas_maquina,
+    obtener_estadisticas_horas_maquina
 )
 from app.db.models import ReporteLaboral
 from app.security.auth import get_current_user
@@ -34,11 +35,10 @@ def get_maquina(id: int, session: Session = Depends(get_db)):
     maquina = service_get_maquina(session, id)
     if maquina:
         return maquina
-    else:
-        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+    return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
 
 @router.post("/", response_model=MaquinaSchema, status_code=201)
-def create_maquina(maquina: MaquinaSchema, session: Session = Depends(get_db)):
+def create_maquina(maquina: MaquinaCreate, session: Session = Depends(get_db)):
     return service_create_maquina(session, maquina)
 
 @router.put("/{id}", response_model=MaquinaSchema)
@@ -46,121 +46,72 @@ def update_maquina(id: int, maquina: MaquinaSchema, session: Session = Depends(g
     updated = service_update_maquina(session, id, maquina)
     if updated:
         return updated
-    else:
-        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+    return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
 
 @router.delete("/{id}")
 def delete_maquina(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_maquina(session, id)
     if deleted:
         return {"message": "Maquina eliminada"}
-    else:
-        return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
+    return JSONResponse(content={"error": "Maquina no encontrada"}, status_code=404)
 
 @router.get("/paginado")
 def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
     return get_all_maquinas_paginated(session, skip=skip, limit=limit)
 
-# ==================== HORAS EN PROYECTOS ====================
+# ==================== HORAS ====================
 
-@router.post("/{maquina_id}/proyectos/{proyecto_id}/horas", status_code=201)
-def registrar_horas_maquina_proyecto_endpoint(
+@router.post("/{maquina_id}/horas", status_code=201)
+def registrar_horas(
     maquina_id: int,
-    proyecto_id: int,
     registro: RegistroHorasMaquinaCreate,
     session: Session = Depends(get_db),
     current_user: UsuarioOut = Depends(get_current_user)
 ):
     """
-    Registra horas de uso de una máquina en un proyecto específico
+    Registrar horas de uso de una máquina
     """
     try:
-        print(f"Recibido registro: {registro.model_dump()}")
-        resultado = registrar_horas_maquina_proyecto(
+        return registrar_horas_maquina(
             db=session,
             maquina_id=maquina_id,
-            proyecto_id=proyecto_id,
             registro=registro,
             usuario_id=current_user.id
         )
-
-        if resultado:
-            return resultado
-        else:
-            return JSONResponse(
-                content={"error": "No se pudo registrar las horas"}, 
-                status_code=400
-            )
-    except ValueError as ve:
-        return JSONResponse(
-            content={"error": f"Error de validación: {str(ve)}"},
-            status_code=400
-        )
     except Exception as e:
-        print(f"Error en endpoint: {str(e)}")
-        return JSONResponse(
-            content={"error": str(e)},
-            status_code=500
-        )
+        return JSONResponse(content={"error": str(e)}, status_code=400)
 
-@router.get("/{maquina_id}/proyectos/{proyecto_id}/horas", response_model=List[HistorialProyectoOut])
-def obtener_horas_maquina_en_proyecto(
+@router.get("/{maquina_id}/horas/historial", response_model=List[HistorialHorasOut])
+def historial_horas(maquina_id: int, session: Session = Depends(get_db)):
+    """
+    Historial completo de horas de una máquina
+    """
+    return obtener_historial_horas_maquina(session, maquina_id)
+
+@router.get("/{maquina_id}/horas/estadisticas", response_model=Optional[EstadisticasHorasOut])
+def estadisticas_horas(
     maquina_id: int,
-    proyecto_id: int,
+    fecha_inicio: Optional[str] = None,
+    fecha_fin: Optional[str] = None,
     session: Session = Depends(get_db)
 ):
-    historial = obtener_historial_proyectos_maquina(session, maquina_id)
-    if not historial:
-        return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
+    """
+    Estadísticas de horas trabajadas de una máquina
+    """
+    return obtener_estadisticas_horas_maquina(session, maquina_id, fecha_inicio, fecha_fin)
 
-    historial_filtrado = [h for h in historial if h.proyecto_id == proyecto_id]
-    if not historial_filtrado:
-        return JSONResponse(content={"error": "No se encontraron registros de horas para este proyecto"}, status_code=404)
+# ==================== CRUD DE REGISTROS DE HORAS ====================
 
-    return historial_filtrado
-
-# ==================== HISTORIAL DE PROYECTOS ====================
-
-@router.get("/{id}/historial-proyectos", response_model=List[HistorialHorasOut])
-def obtener_historial_proyectos_maquina_endpoint(
-    id: int, 
-    session: Session = Depends(get_db)
-):
-    """Obtiene el historial individual de horas trabajadas de una máquina"""
-    historial = obtener_historial_horas_maquina(session, id)
-    return historial
-    else:
-        return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
-
-# ==================== CAMBIAR PROYECTO ====================
-
-@router.put("/{id}/cambiar-proyecto", response_model=CambiarProyectoResponse)
-def cambiar_proyecto_maquina_endpoint(
-    id: int, 
-    cambio: CambiarProyectoRequest, 
-    session: Session = Depends(get_db)
-):
-    resultado = cambiar_proyecto_maquina(session, id, cambio)
-    if resultado:
-        return resultado
-    else:
-        return JSONResponse(
-            content={"error": "Máquina o proyecto no encontrados"}, 
-            status_code=404
-        )
-
-# ==================== REGISTROS DE HORAS (CRUD) ====================
-
-@router.put("/{id}/horas/{registro_id}")
+@router.put("/{maquina_id}/horas/{registro_id}")
 def actualizar_registro_horas(
-    id: int,
+    maquina_id: int,
     registro_id: int,
     datos: RegistroHorasMaquinaCreate,
     session: Session = Depends(get_db)
 ):
     registro = session.query(ReporteLaboral).filter(
         ReporteLaboral.id == registro_id,
-        ReporteLaboral.maquina_id == id
+        ReporteLaboral.maquina_id == maquina_id
     ).first()
 
     if not registro:
@@ -181,15 +132,15 @@ def actualizar_registro_horas(
         }
     }
 
-@router.delete("/{id}/horas/{registro_id}")
+@router.delete("/{maquina_id}/horas/{registro_id}")
 def eliminar_registro_horas(
-    id: int,
+    maquina_id: int,
     registro_id: int,
     session: Session = Depends(get_db)
 ):
     registro = session.query(ReporteLaboral).filter(
         ReporteLaboral.id == registro_id,
-        ReporteLaboral.maquina_id == id
+        ReporteLaboral.maquina_id == maquina_id
     ).first()
 
     if not registro:
@@ -197,5 +148,4 @@ def eliminar_registro_horas(
 
     session.delete(registro)
     session.commit()
-
     return {"message": f"Registro {registro_id} eliminado correctamente"}
