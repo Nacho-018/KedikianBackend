@@ -1,14 +1,14 @@
 # servicio_maquinas.py
 
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
 
 from app.db.models import Maquina, ReporteLaboral
 from app.schemas.schemas import (
     MaquinaSchema, MaquinaCreate, MaquinaOut,
-    RegistroHorasMaquinaCreate, HistorialHorasOut, EstadisticasHorasOut
+    RegistroHorasMaquinaCreate, HistorialHorasOut
 )
 
 # ========== CRUD BÁSICO ==========
@@ -55,7 +55,7 @@ def registrar_horas_maquina(
     usuario_id: int
 ) -> dict:
     """
-    Registra horas trabajadas para una máquina (sin proyecto)
+    Registra horas trabajadas para una máquina y actualiza horas acumuladas
     """
     maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
     if not maquina:
@@ -68,17 +68,16 @@ def registrar_horas_maquina(
             fecha = f"{fecha}T00:00:00"
         fecha = datetime.fromisoformat(fecha)
 
-    # Crear reporte laboral
+    # Crear registro laboral
     reporte = ReporteLaboral(
         maquina_id=maquina_id,
         usuario_id=usuario_id,
         fecha_asignacion=fecha,
         horas_turno=registro.horas
     )
-
     db.add(reporte)
 
-    # Actualizar horas acumuladas en la máquina
+    # Acumular horas en la máquina
     if maquina.horas_uso is None:
         maquina.horas_uso = 0
     maquina.horas_uso += registro.horas
@@ -94,7 +93,7 @@ def registrar_horas_maquina(
 
 def obtener_historial_horas_maquina(db: Session, maquina_id: int) -> List[HistorialHorasOut]:
     """
-    Obtiene el historial de horas de una máquina
+    Historial completo de horas de una máquina
     """
     maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
     if not maquina:
@@ -116,38 +115,3 @@ def obtener_historial_horas_maquina(db: Session, maquina_id: int) -> List[Histor
         )
         for r in reportes
     ]
-
-def obtener_estadisticas_horas_maquina(
-    db: Session,
-    maquina_id: int,
-    fecha_inicio: Optional[str] = None,
-    fecha_fin: Optional[str] = None
-) -> Optional[EstadisticasHorasOut]:
-    """
-    Devuelve estadísticas de horas trabajadas para una máquina
-    """
-    query = db.query(
-        func.sum(ReporteLaboral.horas_turno).label("total_horas"),
-        func.count(ReporteLaboral.id).label("total_registros"),
-        func.avg(ReporteLaboral.horas_turno).label("promedio_horas"),
-        func.min(ReporteLaboral.fecha_asignacion).label("fecha_primer_registro"),
-        func.max(ReporteLaboral.fecha_asignacion).label("fecha_ultimo_registro")
-    ).filter(ReporteLaboral.maquina_id == maquina_id)
-
-    if fecha_inicio:
-        query = query.filter(ReporteLaboral.fecha_asignacion >= fecha_inicio)
-    if fecha_fin:
-        query = query.filter(ReporteLaboral.fecha_asignacion <= fecha_fin)
-
-    result = query.first()
-
-    if not result or result.total_registros == 0:
-        return None
-
-    return EstadisticasHorasOut(
-        total_horas=result.total_horas or 0,
-        total_registros=result.total_registros or 0,
-        promedio_horas=float(result.promedio_horas or 0),
-        fecha_primer_registro=result.fecha_primer_registro,
-        fecha_ultimo_registro=result.fecha_ultimo_registro
-    )
