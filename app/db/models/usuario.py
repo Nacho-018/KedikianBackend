@@ -19,6 +19,7 @@ class Usuario(Base):
     gastos = relationship("Gasto", back_populates="usuario")
     movimientos_inventario = relationship("MovimientoInventario", back_populates="usuario")
     registros_horas = relationship("RegistroHoras", back_populates="operario")
+    jornadas_laborales = relationship("JornadaLaboral", back_populates="usuario", cascade="all, delete-orphan")
     
     # TimeStamps
     created = Column(DateTime(timezone=True), server_default=func.now())

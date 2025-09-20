@@ -7,7 +7,7 @@ class Gasto(Base):
     __tablename__ = "gasto"
     id = Column(Integer, primary_key=True, autoincrement=True)
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
-    maquina_id = Column(Integer, ForeignKey("maquina.id"))
+    maquina_id = Column(Integer, ForeignKey("maquina.id"), nullable=True)  # ← AGREGAR nullable=True
     tipo = Column(String(15))
     importe_total = Column(Integer)
     fecha = Column(DateTime)

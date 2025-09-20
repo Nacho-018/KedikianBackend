@@ -34,12 +34,12 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
 @router.post("/", response_model=GastoSchema, status_code=201)
 def create_gasto(
     usuario_id: int = Form(...),
-    maquina_id: int = Form(...),
+    maquina_id: int | None = Form(None),  # ahora es opcional
     tipo: str = Form(...),
     importe_total: int = Form(...),
     fecha: str = Form(...),
-    descripcion: str = Form(...),
-    imagen: UploadFile = File(None),
+    descripcion: str = Form(''),          # opcional
+    imagen: UploadFile | None = File(None),
     session: Session = Depends(get_db)
 ):
     try:
