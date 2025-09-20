@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
-from typing import List, Optional, Union
+from datetime import datetime, date
+from typing import List, Optional, Union, dict, Any
 
 # Mantenimiento
 class MantenimientoBase(BaseModel):
@@ -537,3 +537,157 @@ class CambiarProyectoResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class JornadaLaboralBase(BaseModel):
+    usuario_id: int
+    fecha: date
+    hora_inicio: datetime
+    tiempo_descanso: int = Field(default=0, description="Tiempo de descanso en minutos")
+    es_feriado: bool = Field(default=False)
+    notas_inicio: Optional[str] = None
+    notas_fin: Optional[str] = None
+    ubicacion_inicio: Optional[str] = None
+    ubicacion_fin: Optional[str] = None
+
+class JornadaLaboralCreate(BaseModel):
+    usuario_id: int
+    notas_inicio: Optional[str] = None
+    ubicacion: Optional[Dict[str, Any]] = None
+
+class JornadaLaboralUpdate(BaseModel):
+    tiempo_descanso: Optional[int] = None
+    notas_fin: Optional[str] = None
+    ubicacion_fin: Optional[Dict[str, Any]] = None
+    estado: Optional[str] = None
+
+class JornadaLaboralResponse(BaseModel):
+    id: int
+    usuario_id: int
+    fecha: date
+    hora_inicio: datetime
+    hora_fin: Optional[datetime] = None
+    tiempo_descanso: int
+    
+    # Cálculo de horas
+    horas_regulares: float
+    horas_extras: float
+    total_horas: float
+    
+    # Estado y control
+    estado: str  # activa, pausada, completada, cancelada
+    es_feriado: bool
+    
+    # Control de horas extras
+    limite_regular_alcanzado: bool
+    hora_limite_regular: Optional[datetime] = None
+    overtime_solicitado: bool
+    overtime_confirmado: bool
+    overtime_iniciado: Optional[datetime] = None
+    pausa_automatica: bool
+    finalizacion_forzosa: bool
+    
+    # Información adicional
+    notas_inicio: Optional[str] = None
+    notas_fin: Optional[str] = None
+    motivo_finalizacion: Optional[str] = None
+    ubicacion_inicio: Optional[str] = None
+    ubicacion_fin: Optional[str] = None
+    
+    # Control de advertencias
+    advertencia_8h_mostrada: bool
+    advertencia_limite_mostrada: bool
+    
+    # Timestamps
+    created: datetime
+    updated: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+        
+    @classmethod
+    def from_orm(cls, orm_obj):
+        """Método personalizado para manejar la conversión desde el ORM"""
+        return cls(
+            id=orm_obj.id,
+            usuario_id=orm_obj.usuario_id,
+            fecha=orm_obj.fecha,
+            hora_inicio=orm_obj.hora_inicio,
+            hora_fin=orm_obj.hora_fin,
+            tiempo_descanso=orm_obj.tiempo_descanso,
+            horas_regulares=orm_obj.horas_regulares,
+            horas_extras=orm_obj.horas_extras,
+            total_horas=orm_obj.total_horas,
+            estado=orm_obj.estado,
+            es_feriado=orm_obj.es_feriado,
+            limite_regular_alcanzado=orm_obj.limite_regular_alcanzado,
+            hora_limite_regular=orm_obj.hora_limite_regular,
+            overtime_solicitado=orm_obj.overtime_solicitado,
+            overtime_confirmado=orm_obj.overtime_confirmado,
+            overtime_iniciado=orm_obj.overtime_iniciado,
+            pausa_automatica=orm_obj.pausa_automatica,
+            finalizacion_forzosa=orm_obj.finalizacion_forzosa,
+            notas_inicio=orm_obj.notas_inicio,
+            notas_fin=orm_obj.notas_fin,
+            motivo_finalizacion=orm_obj.motivo_finalizacion,
+            ubicacion_inicio=orm_obj.ubicacion_inicio,
+            ubicacion_fin=orm_obj.ubicacion_fin,
+            advertencia_8h_mostrada=orm_obj.advertencia_8h_mostrada,
+            advertencia_limite_mostrada=orm_obj.advertencia_limite_mostrada,
+            created=orm_obj.created,
+            updated=orm_obj.updated
+        )
+
+class EstadisticasJornadaResponse(BaseModel):
+    mes: int
+    año: int
+    total_jornadas: int
+    total_horas_regulares: float
+    total_horas_extras: float
+    total_horas: float
+    jornadas_con_extras: int
+    promedio_horas_dia: float
+    jornadas: List[Dict[str, Any]]
+
+class TiempoRestanteResponse(BaseModel):
+    tiempo_hasta_advertencia: int  # minutos
+    tiempo_hasta_limite_regular: int  # minutos
+    tiempo_hasta_limite_maximo: int  # minutos
+    en_overtime: bool
+    horas_trabajadas: float
+
+class ResumenDiaResponse(BaseModel):
+    fecha: str
+    tiene_jornadas: bool
+    jornada_id: Optional[int] = None
+    estado: Optional[str] = None
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    total_horas: float
+    horas_regulares: float
+    horas_extras: float
+    es_feriado: bool
+    en_overtime: bool
+
+# ============= SCHEMAS PARA TRABAJO (NO JORNADA) =============
+# Estos son para machine-hours, que SÍ deben usar reporte_laboral
+
+class TrabajoMaquinaCreate(BaseModel):
+    """Para crear registros de trabajo con máquinas"""
+    maquina_id: int
+    proyecto_id: Optional[int] = None
+    horas_turno: int  # Horas trabajadas con la máquina
+    fecha_asignacion: datetime
+    notas: Optional[str] = None
+
+class TrabajoMaquinaResponse(BaseModel):
+    """Para respuestas de trabajos con máquinas"""
+    id: int
+    maquina_id: int
+    usuario_id: int
+    proyecto_id: Optional[int] = None
+    fecha_asignacion: datetime
+    horas_turno: int
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True

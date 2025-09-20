@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.middlewares.error_handler import ErrorHandler
 from app.db.seed_db import create_admin_user
+from app.routers import jornada_laboral_router
 # Importar los routers
 from app.routers import (
     usuarios_router,
@@ -22,6 +23,7 @@ from app.routers import (
     login_router,
     aridos_router,
     mantenimiento_router
+    jornada_laboral_router
 )
 
 @asynccontextmanager
@@ -68,6 +70,7 @@ app.include_router(entrega_arido_router.router, prefix="/v1")
 app.include_router(login_router.router, prefix="/v1")
 app.include_router(aridos_router.router, prefix="/v1")
 app.include_router(mantenimiento_router.router, prefix="/v1")
+app.include_router(jornada_laboral_router.router, prefix="/v1") 
 
 # Debug al final del archivo, después de incluir routers
 def debug_routes():
