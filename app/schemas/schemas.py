@@ -442,6 +442,7 @@ class EntregaAridoBase(BaseModel):
     proyecto_id: int
     usuario_id: int
     tipo_arido: str
+    nombre: str
     cantidad: int
     fecha_entrega: datetime
 
