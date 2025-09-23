@@ -1,8 +1,10 @@
-# app/routers/jornada_laboral_router.py
+# app/routers/jornada_laboral_router.py - VERSIÓN CORREGIDA FINAL
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, date
+from pydantic import BaseModel
 from app.db.dependencies import get_db
 from app.schemas.schemas import (
     JornadaLaboralCreate,
@@ -13,15 +15,36 @@ from app.schemas.schemas import (
 from app.services.jornada_laboral_service import JornadaLaboralService
 from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/jornadas-laborales", tags=["Jornadas Laborales"], dependencies=[Depends(get_current_user)])
+# ✅ SCHEMAS PARA REQUEST BODY
+class FicharEntradaRequest(BaseModel):
+    usuario_id: int
+    notas_inicio: Optional[str] = None
+    ubicacion: Optional[dict] = None
+
+class FinalizarJornadaRequest(BaseModel):
+    tiempo_descanso: int = 60
+    notas_fin: Optional[str] = None
+    ubicacion: Optional[dict] = None
+    forzado: bool = False
+
+class ConfirmarOvertimeRequest(BaseModel):
+    notas_overtime: Optional[str] = None
+
+class RechazarOvertimeRequest(BaseModel):
+    tiempo_descanso: int = 60
+    notas_fin: Optional[str] = None
+
+router = APIRouter(
+    prefix="/jornadas-laborales", 
+    tags=["Jornadas Laborales"], 
+    dependencies=[Depends(get_current_user)]
+)
 
 # ============ ENDPOINTS DE FICHAJE ============
 
 @router.post("/fichar-entrada", response_model=JornadaLaboralResponse)
 async def fichar_entrada(
-    usuario_id: int,
-    notas_inicio: Optional[str] = None,
-    ubicacion: Optional[dict] = None,
+    request: FicharEntradaRequest,  # ✅ CORREGIDO: Usar schema apropiado
     db: Session = Depends(get_db)
 ):
     """
@@ -30,9 +53,9 @@ async def fichar_entrada(
     try:
         jornada = JornadaLaboralService.iniciar_jornada(
             db=db,
-            usuario_id=usuario_id,
-            notas_inicio=notas_inicio,
-            ubicacion=ubicacion
+            usuario_id=request.usuario_id,
+            notas_inicio=request.notas_inicio,
+            ubicacion=request.ubicacion
         )
         return JornadaLaboralResponse.from_orm(jornada)
     except HTTPException:
@@ -43,10 +66,7 @@ async def fichar_entrada(
 @router.put("/finalizar/{jornada_id}", response_model=JornadaLaboralResponse)
 async def finalizar_jornada(
     jornada_id: int,
-    tiempo_descanso: int = 60,
-    notas_fin: Optional[str] = None,
-    ubicacion: Optional[dict] = None,
-    forzado: bool = False,
+    request: FinalizarJornadaRequest,  # ✅ CORREGIDO: Usar schema apropiado
     db: Session = Depends(get_db)
 ):
     """
@@ -56,10 +76,10 @@ async def finalizar_jornada(
         jornada = JornadaLaboralService.finalizar_jornada(
             db=db,
             jornada_id=jornada_id,
-            tiempo_descanso=tiempo_descanso,
-            notas_fin=notas_fin,
-            ubicacion=ubicacion,
-            forzado=forzado
+            tiempo_descanso=request.tiempo_descanso,
+            notas_fin=request.notas_fin,
+            ubicacion=request.ubicacion,
+            forzado=request.forzado
         )
         return JornadaLaboralResponse.from_orm(jornada)
     except HTTPException:
@@ -70,7 +90,7 @@ async def finalizar_jornada(
 @router.put("/confirmar-overtime/{jornada_id}", response_model=JornadaLaboralResponse)
 async def confirmar_horas_extras(
     jornada_id: int,
-    notas_overtime: Optional[str] = None,
+    request: ConfirmarOvertimeRequest,  # ✅ CORREGIDO: Usar schema apropiado
     db: Session = Depends(get_db)
 ):
     """
@@ -80,7 +100,7 @@ async def confirmar_horas_extras(
         jornada = JornadaLaboralService.confirmar_horas_extras(
             db=db,
             jornada_id=jornada_id,
-            notas_overtime=notas_overtime
+            notas_overtime=request.notas_overtime
         )
         return JornadaLaboralResponse.from_orm(jornada)
     except HTTPException:
@@ -91,8 +111,7 @@ async def confirmar_horas_extras(
 @router.put("/rechazar-overtime/{jornada_id}", response_model=JornadaLaboralResponse)
 async def rechazar_horas_extras(
     jornada_id: int,
-    tiempo_descanso: int = 60,
-    notas_fin: Optional[str] = None,
+    request: RechazarOvertimeRequest,  # ✅ CORREGIDO: Usar schema apropiado
     db: Session = Depends(get_db)
 ):
     """
@@ -102,8 +121,8 @@ async def rechazar_horas_extras(
         jornada = JornadaLaboralService.rechazar_horas_extras(
             db=db,
             jornada_id=jornada_id,
-            tiempo_descanso=tiempo_descanso,
-            notas_fin=notas_fin
+            tiempo_descanso=request.tiempo_descanso,
+            notas_fin=request.notas_fin
         )
         return JornadaLaboralResponse.from_orm(jornada)
     except HTTPException:
@@ -234,7 +253,14 @@ async def obtener_resumen_dia(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener resumen del día: {str(e)}")
 
-# ============ ENDPOINTS DE UTILIDAD ============
+# ============ ENDPOINT DE DEBUG ============
+
+@router.get("/test")
+async def test_endpoint():
+    """
+    Endpoint de prueba para verificar que el router funciona
+    """
+    return {"message": "Router de jornadas laborales funcionando correctamente", "status": "OK"}
 
 @router.get("/tiempo-restante/{jornada_id}")
 async def calcular_tiempo_restante(

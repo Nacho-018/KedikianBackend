@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Union
+from pydantic import BaseModel, ValidationError
 from app.db.dependencies import get_db
 from app.schemas.schemas import GastoSchema, GastoCreate
 from sqlalchemy.orm import Session
@@ -23,9 +23,48 @@ class GastoCreateJSON(BaseModel):
     usuario_id: int
     maquina_id: Optional[int] = None
     tipo: str
-    importe_total: float  # Cambiar a float para manejar decimales
+    importe_total: float
     fecha: str
     descripcion: str = ""
+
+# Función auxiliar para convertir strings a tipos correctos
+def convert_form_data(
+    usuario_id: str,
+    tipo: str,
+    importe_total: str,
+    fecha: str,
+    maquina_id: Optional[str] = None,
+    descripcion: str = ""
+):
+    """Convierte los datos de FormData a los tipos correctos"""
+    try:
+        # Convertir usuario_id
+        usuario_id_int = int(usuario_id)
+        
+        # Convertir importe_total
+        importe_total_float = float(importe_total)
+        
+        # Convertir maquina_id si existe
+        maquina_id_int = None
+        if maquina_id is not None and maquina_id != "" and maquina_id != "null":
+            maquina_id_int = int(maquina_id)
+        
+        # Descripción por defecto si está vacía
+        descripcion_final = descripcion if descripcion else ""
+        
+        return {
+            "usuario_id": usuario_id_int,
+            "tipo": tipo,
+            "importe_total": importe_total_float,
+            "fecha": fecha,
+            "maquina_id": maquina_id_int,
+            "descripcion": descripcion_final
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=422, 
+            detail=f"Error de conversión de datos: {str(e)}"
+        )
 
 # Endpoints Gastos
 
@@ -44,9 +83,7 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
 # ✅ ENDPOINT JSON PARA FRONTEND ANGULAR
 @router.post("/json", response_model=GastoSchema, status_code=201)
 def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(get_db)):
-    """
-    Crear gasto desde JSON (para frontend Angular)
-    """
+    """Crear gasto desde JSON (para frontend Angular)"""
     try:
         print("🔍 === DEBUG GASTO JSON ===")
         print(f"usuario_id: {gasto_data.usuario_id}")
@@ -71,76 +108,98 @@ def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(ge
         print(f"❌ Error al crear gasto JSON: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
-# ✅ ENDPOINT FORMDATA CORREGIDO
+# ✅ ENDPOINT FORMDATA CORREGIDO - RECIBE TODO COMO STRING Y CONVIERTE
 @router.post("/", response_model=GastoSchema, status_code=201)
 def create_gasto(
-    usuario_id: int = Form(...),
+    usuario_id: str = Form(...),  # ✅ Recibir como string
     tipo: str = Form(...),
-    importe_total: float = Form(...),  # ✅ Cambiar a float
+    importe_total: str = Form(...),  # ✅ Recibir como string
     fecha: str = Form(...),
-    maquina_id: Optional[int] = Form(None),  # ✅ Opcional y al final
-    descripcion: str = Form(""),  # ✅ Opcional con valor por defecto
-    imagen: Optional[UploadFile] = File(None),  # ✅ Opcional
+    maquina_id: Optional[str] = Form(None),  # ✅ Recibir como string opcional
+    descripcion: str = Form(""),
+    imagen: Optional[UploadFile] = File(None),
     session: Session = Depends(get_db)
 ):
     try:
-        print("🔍 === DEBUG FORMDATA GASTO ===")
-        print(f"usuario_id: {usuario_id} (tipo: {type(usuario_id)})")
-        print(f"maquina_id: {maquina_id} (tipo: {type(maquina_id)})")
-        print(f"tipo: {tipo}")
-        print(f"importe_total: {importe_total} (tipo: {type(importe_total)})")
-        print(f"fecha: {fecha}")
+        print("🔍 === DEBUG FORMDATA GASTO (RAW) ===")
+        print(f"usuario_id: '{usuario_id}' (tipo: {type(usuario_id)})")
+        print(f"maquina_id: '{maquina_id}' (tipo: {type(maquina_id)})")
+        print(f"tipo: '{tipo}'")
+        print(f"importe_total: '{importe_total}' (tipo: {type(importe_total)})")
+        print(f"fecha: '{fecha}'")
         print(f"descripcion: '{descripcion}'")
         print(f"imagen: {imagen}")
-        print("===============================")
+        print("====================================")
+        
+        # ✅ Convertir datos usando función auxiliar
+        converted_data = convert_form_data(
+            usuario_id, tipo, importe_total, fecha, maquina_id, descripcion
+        )
+        
+        print("🔍 === DATOS CONVERTIDOS ===")
+        for key, value in converted_data.items():
+            print(f"{key}: {value} (tipo: {type(value)})")
+        print("============================")
         
         return service_create_gasto(
             session,
-            usuario_id,
-            maquina_id,
-            tipo,
-            importe_total,
-            fecha,
-            descripcion,
+            converted_data["usuario_id"],
+            converted_data["maquina_id"],
+            converted_data["tipo"],
+            converted_data["importe_total"],
+            converted_data["fecha"],
+            converted_data["descripcion"],
             imagen
         )
+        
+    except HTTPException:
+        raise  # Re-raise HTTPExceptions
+    except ValidationError as e:
+        print(f"❌ Error de validación: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Error de validación: {str(e)}")
     except Exception as e:
         print(f"❌ Error al crear gasto: {str(e)}")
+        print(f"❌ Tipo de error: {type(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
 # ✅ ENDPOINT PUT CORREGIDO
 @router.put("/{id}", response_model=GastoSchema)
 def update_gasto(
     id: int,
-    usuario_id: int = Form(...),
+    usuario_id: str = Form(...),  # ✅ Recibir como string
     tipo: str = Form(...),
-    importe_total: float = Form(...),  # ✅ Cambiar a float
+    importe_total: str = Form(...),  # ✅ Recibir como string
     fecha: str = Form(...),
-    maquina_id: Optional[int] = Form(None),  # ✅ Opcional
-    descripcion: str = Form(""),  # ✅ Opcional con valor por defecto
-    imagen: Optional[UploadFile] = File(None),  # ✅ Opcional
+    maquina_id: Optional[str] = Form(None),  # ✅ Recibir como string opcional
+    descripcion: str = Form(""),
+    imagen: Optional[UploadFile] = File(None),
     session: Session = Depends(get_db)
 ):
     try:
         print("🔍 === DEBUG UPDATE GASTO ===")
         print(f"id: {id}")
-        print(f"usuario_id: {usuario_id}")
-        print(f"maquina_id: {maquina_id}")
-        print(f"tipo: {tipo}")
-        print(f"importe_total: {importe_total}")
-        print(f"fecha: {fecha}")
+        print(f"usuario_id: '{usuario_id}'")
+        print(f"maquina_id: '{maquina_id}'")
+        print(f"tipo: '{tipo}'")
+        print(f"importe_total: '{importe_total}'")
+        print(f"fecha: '{fecha}'")
         print(f"descripcion: '{descripcion}'")
         print("=============================")
+        
+        # ✅ Convertir datos
+        converted_data = convert_form_data(
+            usuario_id, tipo, importe_total, fecha, maquina_id, descripcion
+        )
         
         return service_update_gasto(
             session,
             id,
-            usuario_id,
-            maquina_id,
-            tipo,
-            importe_total,
-            fecha,
-            descripcion,
+            converted_data["usuario_id"],
+            converted_data["maquina_id"],
+            converted_data["tipo"],
+            converted_data["importe_total"],
+            converted_data["fecha"],
+            converted_data["descripcion"],
             imagen
         )
     except HTTPException:
