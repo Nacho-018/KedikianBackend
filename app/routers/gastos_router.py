@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 from app.db.dependencies import get_db
 from app.schemas.schemas import GastoSchema, GastoCreate
 from sqlalchemy.orm import Session
@@ -17,6 +18,15 @@ from app.security.auth import get_current_user
 
 router = APIRouter(prefix="/gastos", tags=["Gastos"], dependencies=[Depends(get_current_user)])
 
+# ✅ DEFINIR MODELOS PRIMERO
+class GastoCreateJSON(BaseModel):
+    usuario_id: int
+    maquina_id: Optional[int] = None
+    tipo: str
+    importe_total: float  # Cambiar a float para manejar decimales
+    fecha: str
+    descripcion: str = ""
+
 # Endpoints Gastos
 
 @router.get("/", response_model=List[GastoSchema])
@@ -30,15 +40,8 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
         return gasto
     else:
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
-class GastoCreateJSON(BaseModel):
-    usuario_id: int
-    maquina_id: int | None = None
-    tipo: str
-    importe_total: int
-    fecha: str
-    descripcion: str = ""
 
-# ✅ AGREGAR: Nuevo endpoint que acepta JSON
+# ✅ ENDPOINT JSON PARA FRONTEND ANGULAR
 @router.post("/json", response_model=GastoSchema, status_code=201)
 def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(get_db)):
     """
@@ -67,19 +70,30 @@ def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(ge
     except Exception as e:
         print(f"❌ Error al crear gasto JSON: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
-        
+
+# ✅ ENDPOINT FORMDATA CORREGIDO
 @router.post("/", response_model=GastoSchema, status_code=201)
 def create_gasto(
     usuario_id: int = Form(...),
-    maquina_id: int | None = Form(None),  # ahora es opcional
     tipo: str = Form(...),
-    importe_total: int = Form(...),
+    importe_total: float = Form(...),  # ✅ Cambiar a float
     fecha: str = Form(...),
-    descripcion: str = Form(''),          # opcional
-    imagen: UploadFile | None = File(None),
+    maquina_id: Optional[int] = Form(None),  # ✅ Opcional y al final
+    descripcion: str = Form(""),  # ✅ Opcional con valor por defecto
+    imagen: Optional[UploadFile] = File(None),  # ✅ Opcional
     session: Session = Depends(get_db)
 ):
     try:
+        print("🔍 === DEBUG FORMDATA GASTO ===")
+        print(f"usuario_id: {usuario_id} (tipo: {type(usuario_id)})")
+        print(f"maquina_id: {maquina_id} (tipo: {type(maquina_id)})")
+        print(f"tipo: {tipo}")
+        print(f"importe_total: {importe_total} (tipo: {type(importe_total)})")
+        print(f"fecha: {fecha}")
+        print(f"descripcion: '{descripcion}'")
+        print(f"imagen: {imagen}")
+        print("===============================")
+        
         return service_create_gasto(
             session,
             usuario_id,
@@ -91,21 +105,33 @@ def create_gasto(
             imagen
         )
     except Exception as e:
+        print(f"❌ Error al crear gasto: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
+# ✅ ENDPOINT PUT CORREGIDO
 @router.put("/{id}", response_model=GastoSchema)
 def update_gasto(
     id: int,
     usuario_id: int = Form(...),
-    maquina_id: int = Form(...),
     tipo: str = Form(...),
-    importe_total: int = Form(...),
+    importe_total: float = Form(...),  # ✅ Cambiar a float
     fecha: str = Form(...),
-    descripcion: str = Form(...),
-    imagen: UploadFile = File(None),
+    maquina_id: Optional[int] = Form(None),  # ✅ Opcional
+    descripcion: str = Form(""),  # ✅ Opcional con valor por defecto
+    imagen: Optional[UploadFile] = File(None),  # ✅ Opcional
     session: Session = Depends(get_db)
 ):
     try:
+        print("🔍 === DEBUG UPDATE GASTO ===")
+        print(f"id: {id}")
+        print(f"usuario_id: {usuario_id}")
+        print(f"maquina_id: {maquina_id}")
+        print(f"tipo: {tipo}")
+        print(f"importe_total: {importe_total}")
+        print(f"fecha: {fecha}")
+        print(f"descripcion: '{descripcion}'")
+        print("=============================")
+        
         return service_update_gasto(
             session,
             id,
@@ -120,6 +146,7 @@ def update_gasto(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"❌ Error al actualizar gasto: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar gasto: {str(e)}")
 
 @router.delete("/{id}")
