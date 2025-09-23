@@ -22,7 +22,7 @@ from app.routers import (
     entrega_arido_router,
     login_router,
     aridos_router,
-    mantenimiento_router
+    mantenimiento_router,
     jornada_laboral_router
 )
 

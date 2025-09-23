@@ -30,7 +30,44 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
         return gasto
     else:
         raise HTTPException(status_code=404, detail="Gasto no encontrado")
+class GastoCreateJSON(BaseModel):
+    usuario_id: int
+    maquina_id: int | None = None
+    tipo: str
+    importe_total: int
+    fecha: str
+    descripcion: str = ""
 
+# ✅ AGREGAR: Nuevo endpoint que acepta JSON
+@router.post("/json", response_model=GastoSchema, status_code=201)
+def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(get_db)):
+    """
+    Crear gasto desde JSON (para frontend Angular)
+    """
+    try:
+        print("🔍 === DEBUG GASTO JSON ===")
+        print(f"usuario_id: {gasto_data.usuario_id}")
+        print(f"maquina_id: {gasto_data.maquina_id}")
+        print(f"tipo: {gasto_data.tipo}")
+        print(f"importe_total: {gasto_data.importe_total}")
+        print(f"fecha: {gasto_data.fecha}")
+        print(f"descripcion: {gasto_data.descripcion}")
+        print("=============================")
+        
+        return service_create_gasto(
+            session,
+            gasto_data.usuario_id,
+            gasto_data.maquina_id,
+            gasto_data.tipo,
+            gasto_data.importe_total,
+            gasto_data.fecha,
+            gasto_data.descripcion,
+            None  # Sin imagen para JSON
+        )
+    except Exception as e:
+        print(f"❌ Error al crear gasto JSON: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
+        
 @router.post("/", response_model=GastoSchema, status_code=201)
 def create_gasto(
     usuario_id: int = Form(...),
