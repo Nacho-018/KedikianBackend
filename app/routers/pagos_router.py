@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
 from app.db.dependencies import get_db
+from datetime import datetime
+from app.db.models import Pago
 from app.schemas.schemas import PagoSchema, PagoCreate
 from sqlalchemy.orm import Session
 from app.services.pago_service import (
@@ -15,16 +17,30 @@ from app.security.auth import get_current_user
 
 router = APIRouter(prefix="/pagos", tags=["Pagos"], dependencies=[Depends(get_current_user)])
 
-# Endpoints Pagos
-@router.get("/", response_model=List[PagoSchema])
-def get_pagos(session: Session = Depends(get_db)):
-    return service_get_pagos(session)
+# Obtener todos los pagos
+@router.get("/", response_model=List[PagoOut])
+def get_pagos(
+    fechaInicio: Optional[datetime] = Query(None),
+    fechaFin: Optional[datetime] = Query(None),
+    session: Session = Depends(get_db)
+):
+    try:
+        query = session.query(Pago)
+        if fechaInicio:
+            query = query.filter(Pago.fecha >= fechaInicio)
+        if fechaFin:
+            query = query.filter(Pago.fecha <= fechaFin)
+        pagos = query.all()
+        return [PagoOut.from_orm(p) for p in pagos]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener pagos: {str(e)}")
 
-@router.get("/{id}", response_model=PagoSchema)
+# Obtener pago por ID
+@router.get("/{id}", response_model=PagoOut)
 def get_pago(id: int, session: Session = Depends(get_db)):
-    pago = service_get_pago(session, id)
+    pago = session.query(Pago).filter(Pago.id == id).first()
     if pago:
-        return pago
+        return PagoOut.from_orm(pago)
     else:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
 
