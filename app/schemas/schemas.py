@@ -107,10 +107,10 @@ class ContratoOut(ContratoBase):
 
 # Gasto
 class GastoBase(BaseModel):
-    usuario_id: Optional[int] = None
+    usuario_id: int
     maquina_id: Optional[int] = None
     tipo: str
-    importe_total: int
+    importe_total: float
     fecha: datetime
     descripcion: str
     imagen: Optional[str] = None
@@ -147,7 +147,7 @@ class MaquinaSchema(BaseModel):
     proyecto_id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class MaquinaOut(BaseModel):
     id: Optional[int] = None
@@ -157,7 +157,7 @@ class MaquinaOut(BaseModel):
     proyecto_id: Optional[int] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # MovimientoInventario
 class MovimientoInventarioBase(BaseModel):
@@ -185,7 +185,6 @@ class MovimientoInventarioOut(MovimientoInventarioBase):
 # Pago
 class PagoBase(BaseModel):
     proyecto_id: Optional[int] = None
-    producto_id: Optional[int] = None
     importe_total: int
     fecha: datetime
     descripcion: str
@@ -257,8 +256,8 @@ class ProyectoOut(ProyectoBase):
 
 # ReporteLaboral
 class ReporteLaboralBase(BaseModel):
-    maquina_id: Optional[int] = None
-    usuario_id: Optional[int] = None
+    maquina_id: int
+    usuario_id: int
     proyecto_id: Optional[int] = Field(None, description="ID del proyecto asignado")  # ← Field para forzar inclusión
     fecha_asignacion: datetime
     horas_turno: int
@@ -442,7 +441,7 @@ class EntregaAridoBase(BaseModel):
     proyecto_id: int
     usuario_id: int
     tipo_arido: str
-    nombre: str
+    nombre: Optional[str] = None
     cantidad: int
     fecha_entrega: datetime
 

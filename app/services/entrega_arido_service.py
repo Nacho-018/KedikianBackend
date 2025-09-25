@@ -18,6 +18,19 @@ def get_entrega_arido(db: Session, entrega_id: int) -> Optional[EntregaAridoOut]
         return EntregaAridoOut.model_validate(entrega)
     return None
 
+from fastapi import HTTPException
+import traceback
+
+def get_all_entregas_arido_safe(db: Session, skip: int = 0, limit: int = 100):
+    try:
+        entregas = db.query(EntregaArido).offset(skip).limit(limit).all()
+        return [EntregaAridoOut.model_validate(e) for e in entregas]
+    except Exception as e:
+        print("Error en get_all_entregas_arido:", e)
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Error interno al obtener entregas de áridos")
+
+
 def get_all_entregas_arido(db: Session, skip: int = 0, limit: int = 100) -> List[EntregaAridoOut]:
     entregas = db.query(EntregaArido).offset(skip).limit(limit).all()
     return [EntregaAridoOut.model_validate(e) for e in entregas]

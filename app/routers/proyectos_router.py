@@ -59,13 +59,19 @@ def delete_proyecto(id: int, session: Session = Depends(get_db)):
 
 @router.get("/{id}/maquinas")
 def get_maquinas_proyecto(id: int, session: Session = Depends(get_db)):
-    # Obtener máquinas y horas semanales asignadas al proyecto
-    return get_maquinas_by_proyecto(session, id)
+    from app.services.proyecto_service import get_maquinas_by_proyecto
+    try:
+        return get_maquinas_by_proyecto(session, id)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 @router.get("/{id}/aridos")
 def get_aridos_proyecto(id: int, session: Session = Depends(get_db)):
-    # Obtener áridos/materiales asociados al proyecto
-    return get_aridos_by_proyecto(session, id)
+    from app.services.proyecto_service import get_aridos_by_proyecto
+    try:
+        return get_aridos_by_proyecto(session, id)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 # Endpoint para cantidad de proyectos activos
 @router.get("/activos/cantidad")

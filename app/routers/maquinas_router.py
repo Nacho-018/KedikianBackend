@@ -88,17 +88,7 @@ def historial_horas(maquina_id: int, session: Session = Depends(get_db)):
     """
     return obtener_historial_horas_maquina(session, maquina_id)
 
-@router.get("/{maquina_id}/horas/estadisticas", response_model=Optional[EstadisticasHorasOut])
-def estadisticas_horas(
-    maquina_id: int,
-    fecha_inicio: Optional[str] = None,
-    fecha_fin: Optional[str] = None,
-    session: Session = Depends(get_db)
-):
-    """
-    Estadísticas de horas trabajadas de una máquina
-    """
-    return obtener_estadisticas_horas_maquina(session, maquina_id, fecha_inicio, fecha_fin)
+
 
 # ==================== CRUD DE REGISTROS DE HORAS ====================
 

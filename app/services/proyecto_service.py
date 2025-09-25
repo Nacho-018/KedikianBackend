@@ -1,6 +1,6 @@
-from app.db.models import Proyecto, Contrato
+from app.db.models import Proyecto, Contrato, ReporteLaboral, Maquina
 from app.schemas.schemas import ProyectoSchema, ProyectoCreate, ProyectoOut
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 from datetime import datetime
@@ -123,18 +123,37 @@ def delete_proyecto(db: Session, proyecto_id: int) -> bool:
         return True
     return False
 
-def get_maquinas_by_proyecto(db: Session, proyecto_id: int):
-    from app.db.models.maquina import Maquina
-    # Suponiendo que Maquina tiene proyecto_id y horas_uso
-    maquinas = db.query(Maquina).filter(Maquina.proyecto_id == proyecto_id).all()
-    # Aquí puedes ajustar si tienes una relación de asignación semanal
-    return [
-        {
-            "nombre": m.nombre,
-            "horas_semanales": m.horas_uso  # Cambia esto si tienes un campo específico
-        }
-        for m in maquinas
-    ]
+def get_maquinas_by_proyecto(db: Session, proyecto_id: int) -> List[dict]:
+    try:
+        reportes = (
+            db.query(ReporteLaboral)
+            .filter(ReporteLaboral.proyecto_id == proyecto_id)
+            .all()
+        )
+
+        maquinas_dict = {}
+        for reporte in reportes:
+            # Buscar la máquina manualmente para no depender de joinedload
+            maquina = db.query(Maquina).filter(Maquina.id == reporte.maquina_id).first()
+            if not maquina:
+                print(f"⚠️ Reporte {reporte.id} tiene maquina_id {reporte.maquina_id} que no existe")
+                continue
+            if maquina.id not in maquinas_dict:
+                maquinas_dict[maquina.id] = {
+                    "id": maquina.id,
+                    "nombre": maquina.nombre,
+                    "estado": maquina.estado,
+                    "horas_totales": 0
+                }
+            maquinas_dict[maquina.id]["horas_totales"] += reporte.horas_turno
+
+        return list(maquinas_dict.values())
+
+    except Exception as e:
+        print(f"[ERROR] get_maquinas_by_proyecto (proyecto_id={proyecto_id}): {e}")
+        raise Exception(f"No se pudieron obtener las máquinas para el proyecto {proyecto_id}: {str(e)}")
+
+
 
 def get_aridos_by_proyecto(db: Session, proyecto_id: int):
     from app.db.models.entrega_arido import EntregaArido

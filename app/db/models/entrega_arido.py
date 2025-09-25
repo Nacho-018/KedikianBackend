@@ -9,6 +9,7 @@ class EntregaArido(Base):
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"))
     usuario_id = Column(Integer, ForeignKey("usuario.id"))
     tipo_arido = Column(String)
+    nombre: Column(String)
     cantidad = Column(Integer)
     fecha_entrega = Column(DateTime)
 

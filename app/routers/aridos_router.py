@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from pydantic import BaseModel
 from app.db.dependencies import get_db
 from app.schemas.schemas import EntregaAridoCreate, EntregaAridoOut
 from app.services.entrega_arido_service import (

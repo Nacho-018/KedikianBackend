@@ -10,7 +10,7 @@ class Maquina(Base):
     estado = Column(Boolean, default=True)
     horas_uso = Column(Integer, default=0)
     horas_maquina = Column(Integer, default=0)
-    proyecto_id = Column(Integer, ForeignKey("proyecto.id"), nullable=True)
+
 
     # Relaciones
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")

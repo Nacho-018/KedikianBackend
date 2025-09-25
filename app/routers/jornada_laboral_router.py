@@ -42,24 +42,23 @@ router = APIRouter(
 
 # ============ ENDPOINTS DE FICHAJE ============
 
-@router.post("/fichar-entrada", response_model=JornadaLaboralResponse)
+router.post("/fichar-entrada", response_model=JornadaLaboralResponse)
 async def fichar_entrada(
-    usuario_id: int = Query(..., description="ID del usuario"),
-    notas_inicio: Optional[str] = Query(None, description="Notas de inicio"),
+    request: FicharEntradaRequest,  # ✅ CORREGIDO: Request body
     db: Session = Depends(get_db)
 ):
     """
-    ✅ CORREGIDO: Fichar entrada usando Query parameters
+    Fichar entrada usando Request Body JSON
     """
     try:
-        print(f"🚀 Fichando entrada para usuario: {usuario_id}")
-        print(f"📝 Notas: {notas_inicio}")
+        print(f"🚀 Fichando entrada para usuario: {request.usuario_id}")
+        print(f"📝 Notas: {request.notas_inicio}")
         
         jornada = JornadaLaboralService.iniciar_jornada(
             db=db,
-            usuario_id=usuario_id,
-            notas_inicio=notas_inicio,
-            ubicacion=None
+            usuario_id=request.usuario_id,
+            notas_inicio=request.notas_inicio,
+            ubicacion=request.ubicacion
         )
         
         response = JornadaLaboralResponse.from_orm(jornada)
@@ -73,40 +72,26 @@ async def fichar_entrada(
         print(f"❌ Error inesperado: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al fichar entrada: {str(e)}")
 
+
 @router.put("/finalizar/{jornada_id}", response_model=JornadaLaboralResponse)
 async def finalizar_jornada(
     jornada_id: int,
-    tiempo_descanso: int = Query(60, description="Tiempo de descanso en minutos"),
-    notas_fin: Optional[str] = Query(None, description="Notas de finalización"),
-    forzado: bool = Query(False, description="Finalización forzada"),
+    request: FinalizarJornadaRequest,  # ✅ CORREGIDO: Request body
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ CORREGIDO: Finalizar jornada usando Query parameters
-    """
     try:
-        print(f"🛑 Finalizando jornada ID: {jornada_id}")
-        print(f"⏰ Tiempo descanso: {tiempo_descanso} minutos")
-        print(f"💪 Forzado: {forzado}")
-        
         jornada = JornadaLaboralService.finalizar_jornada(
             db=db,
             jornada_id=jornada_id,
-            tiempo_descanso=tiempo_descanso,
-            notas_fin=notas_fin,
-            ubicacion=None,
-            forzado=forzado
+            tiempo_descanso=request.tiempo_descanso,
+            notas_fin=request.notas_fin,
+            ubicacion=request.ubicacion,
+            forzado=request.forzado
         )
-        
-        response = JornadaLaboralResponse.from_orm(jornada)
-        print(f"✅ Jornada finalizada: {response.id}")
-        
-        return response
-        
+        return JornadaLaboralResponse.from_orm(jornada)
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error inesperado: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al finalizar jornada: {str(e)}")
 
 @router.put("/confirmar-overtime/{jornada_id}", response_model=JornadaLaboralResponse)
