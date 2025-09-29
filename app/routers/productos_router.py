@@ -15,24 +15,34 @@ from app.services.producto_service import (
 import os
 from app.security.auth import get_current_user
 
-router = APIRouter(prefix="/productos", tags=["Productos"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/productos",
+    tags=["Productos"],
+    dependencies=[Depends(get_current_user)]
+)
 
 UPLOAD_DIR = "static/productos/"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# =====================
 # Endpoints Productos
+# =====================
+
+# Obtener todos los productos
 @router.get("/", response_model=List[ProductoSchema])
 def get_productos(session: Session = Depends(get_db)):
     return service_get_productos(session)
 
-@router.get("/{id}", response_model=ProductoSchema)
-def get_producto(id: int, session: Session = Depends(get_db)):
-    producto = service_get_producto(session, id)
-    if producto:
-        return producto
-    else:
-        return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
+# 🔹 Paginado (debe ir antes de /{id})
+@router.get("/paginado")
+def productos_paginado(
+    skip: int = 0,
+    limit: int = 15,
+    session: Session = Depends(get_db)
+):
+    return get_all_productos_paginated(session, skip=skip, limit=limit)
 
+# Crear producto
 @router.post("/", response_model=ProductoSchema, status_code=201)
 def create_producto(
     nombre: str = Form(...),
@@ -43,6 +53,7 @@ def create_producto(
 ):
     return service_create_producto(session, nombre, codigo_producto, inventario, imagen)
 
+# Actualizar producto
 @router.put("/{id}", response_model=ProductoSchema)
 def update_producto(
     id: int,
@@ -58,6 +69,7 @@ def update_producto(
     else:
         return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
 
+# Eliminar producto
 @router.delete("/{id}")
 def delete_producto(id: int, session: Session = Depends(get_db)):
     deleted = service_delete_producto(session, id)
@@ -66,6 +78,11 @@ def delete_producto(id: int, session: Session = Depends(get_db)):
     else:
         return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
 
-@router.get("/paginado")
-def productos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
-    return get_all_productos_paginated(session, skip=skip, limit=limit)
+# 🔹 Obtener un producto (este va al final para no pisar /paginado)
+@router.get("/{id}", response_model=ProductoSchema)
+def get_producto(id: int, session: Session = Depends(get_db)):
+    producto = service_get_producto(session, id)
+    if producto:
+        return producto
+    else:
+        return JSONResponse(content={"error": "Producto no encontrado"}, status_code=404)
