@@ -82,25 +82,19 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
 @router.post("/json", response_model=GastoSchema, status_code=201)
 def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(get_db)):
     try:
-        converted_data = convert_form_data(
-            str(gasto_data.usuario_id),
-            gasto_data.tipo,
-            str(gasto_data.importe_total),
-            gasto_data.fecha,
-            str(gasto_data.maquina_id) if gasto_data.maquina_id is not None else None,
-            gasto_data.descripcion
-        )
+        # ✅ SOLUCIÓN: Convertir explícitamente a entero
         return service_create_gasto(
             session,
-            converted_data["usuario_id"],
-            converted_data["maquina_id"],
-            converted_data["tipo"],
-            converted_data["importe_total"],
-            converted_data["fecha"],
-            converted_data["descripcion"],
+            gasto_data.usuario_id,
+            gasto_data.maquina_id,
+            gasto_data.tipo,
+            int(gasto_data.importe_total),  # ← CAMBIAR: de float a int()
+            gasto_data.fecha,
+            gasto_data.descripcion,
             None  # JSON no incluye imagen
         )
     except Exception as e:
+        print(f"❌ ERROR DETALLADO: {type(e).__name__}: {str(e)}")  # ← AGREGAR para más info
         raise HTTPException(status_code=500, detail=f"Error al crear gasto JSON: {str(e)}")
 
 # CREATE gasto desde FormData (con imagen)
