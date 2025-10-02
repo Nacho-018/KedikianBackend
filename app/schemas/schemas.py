@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, date
-from typing import List, Optional, Union, dict, Any
+from typing import List, Optional, Union, Dict, Any
 
 # Mantenimiento
 class MantenimientoBase(BaseModel):
@@ -261,6 +261,7 @@ class ReporteLaboralBase(BaseModel):
     proyecto_id: Optional[int] = Field(None, description="ID del proyecto asignado")  # ← Field para forzar inclusión
     fecha_asignacion: datetime
     horas_turno: int
+    horometro_inicial: Optional[float] = Field(None, description="Lectura inicial del horómetro")
 
 class ReporteLaboralCreate(ReporteLaboralBase):
     pass

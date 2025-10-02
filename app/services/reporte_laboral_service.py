@@ -15,7 +15,8 @@ def get_reportes_laborales(db: Session) -> List[ReporteLaboralOut]:
         usuario_id=r.usuario_id,
         proyecto_id=r.proyecto_id,
         fecha_asignacion=r.fecha_asignacion,
-        horas_turno=r.horas_turno
+        horas_turno=r.horas_turno,
+        horometro_inicial=r.horometro_inicial  # ← INCLUIR nuevo campo
     ) for r in reportes]
 
 def get_reporte_laboral(db: Session, reporte_id: int) -> Optional[ReporteLaboralOut]:
@@ -27,7 +28,8 @@ def get_reporte_laboral(db: Session, reporte_id: int) -> Optional[ReporteLaboral
             usuario_id=r.usuario_id,
             proyecto_id=r.proyecto_id,
             fecha_asignacion=r.fecha_asignacion,
-            horas_turno=r.horas_turno
+            horas_turno=r.horas_turno,
+            horometro_inicial=r.horometro_inicial  # ← INCLUIR nuevo campo
         )
     return None
 
@@ -42,7 +44,8 @@ def create_reporte_laboral(db: Session, reporte: ReporteLaboralCreate) -> Report
         usuario_id=nuevo_reporte.usuario_id,
         proyecto_id=nuevo_reporte.proyecto_id,
         fecha_asignacion=nuevo_reporte.fecha_asignacion,
-        horas_turno=nuevo_reporte.horas_turno
+        horas_turno=nuevo_reporte.horas_turno,
+        horometro_inicial=nuevo_reporte.horometro_inicial  # ← INCLUIR nuevo campo
     )
 
 def update_reporte_laboral(db: Session, reporte_id: int, reporte: ReporteLaboralSchema) -> Optional[ReporteLaboralOut]:
@@ -58,7 +61,8 @@ def update_reporte_laboral(db: Session, reporte_id: int, reporte: ReporteLaboral
             usuario_id=existing_reporte.usuario_id,
             proyecto_id=existing_reporte.proyecto_id,
             fecha_asignacion=existing_reporte.fecha_asignacion,
-            horas_turno=existing_reporte.horas_turno
+            horas_turno=existing_reporte.horas_turno,
+            horometro_inicial=existing_reporte.horometro_inicial  # ← INCLUIR nuevo campo
         )
     return None
 
@@ -87,5 +91,6 @@ def get_all_reportes_laborales_paginated(db: Session, skip: int = 0, limit: int 
         usuario_id=r.usuario_id,
         proyecto_id=r.proyecto_id,
         fecha_asignacion=r.fecha_asignacion,
-        horas_turno=r.horas_turno
+        horas_turno=r.horas_turno,
+        horometro_inicial=r.horometro_inicial  # ← INCLUIR nuevo campo
     ) for r in reportes]
