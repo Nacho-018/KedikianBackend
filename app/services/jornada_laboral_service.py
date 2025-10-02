@@ -263,15 +263,16 @@ class JornadaLaboralService:
         limite: int = 10,
         offset: int = 0
     ) -> List[JornadaLaboral]:
-        """
-        ✅ Obtiene las jornadas de un usuario (más recientes primero)
-        """
-        jornadas = db.query(JornadaLaboral).filter(
-            JornadaLaboral.usuario_id == usuario_id
+        try:
+            jornadas = db.query(JornadaLaboral).filter(
+                JornadaLaboral.usuario_id == usuario_id
         ).order_by(desc(JornadaLaboral.fecha), desc(JornadaLaboral.created)).offset(offset).limit(limite).all()
         
-        print(f"📋 Encontradas {len(jornadas)} jornadas para usuario {usuario_id}")
-        return jornadas
+            print(f"📋 Encontradas {len(jornadas)} jornadas para usuario {usuario_id}")
+            return jornadas
+        except Exception as e:
+            print(f"❌ Error en obtener_jornadas_usuario: {str(e)}")
+            raise
     
     @staticmethod
     def obtener_jornadas_periodo(

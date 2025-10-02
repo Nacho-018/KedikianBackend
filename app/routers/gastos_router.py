@@ -29,6 +29,7 @@ class GastoCreateJSON(BaseModel):
     fecha: str
     descripcion: str = ""
 
+
 # ================================
 # FUNCIONES AUXILIARES
 # ================================
@@ -80,22 +81,40 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
 
 # CREATE gasto desde JSON (Angular / frontend)
 @router.post("/json", response_model=GastoSchema, status_code=201)
-def create_gasto_json(gasto_data: GastoCreateJSON, session: Session = Depends(get_db)):
+async def create_gasto_json(
+    gasto_data: GastoCreateJSON,
+    session: Session = Depends(get_db)
+):
+    """Crear gasto desde JSON (usado por Angular)"""
     try:
-        # ✅ SOLUCIÓN: Convertir explícitamente a entero
-        return service_create_gasto(
-            session,
-            gasto_data.usuario_id,
-            gasto_data.maquina_id,
-            gasto_data.tipo,
-            int(gasto_data.importe_total),  # ← CAMBIAR: de float a int()
-            gasto_data.fecha,
-            gasto_data.descripcion,
-            None  # JSON no incluye imagen
+        # Parsear fecha correctamente
+        fecha_str = gasto_data.fecha.replace('Z', '+00:00')
+        try:
+            fecha_parsed = datetime.fromisoformat(fecha_str)
+        except ValueError:
+            fecha_parsed = datetime.strptime(gasto_data.fecha.split('T')[0], '%Y-%m-%d')
+        
+        # Crear gasto
+        nuevo_gasto = Gasto(
+            usuario_id=gasto_data.usuario_id,
+            maquina_id=gasto_data.maquina_id,
+            tipo=gasto_data.tipo,
+            importe_total=gasto_data.importe_total,
+            fecha=fecha_parsed,
+            descripcion=gasto_data.descripcion,
+            imagen=None
         )
+        
+        session.add(nuevo_gasto)
+        session.commit()
+        session.refresh(nuevo_gasto)
+        
+        return GastoSchema.from_orm(nuevo_gasto)
+        
     except Exception as e:
-        print(f"❌ ERROR DETALLADO: {type(e).__name__}: {str(e)}")  # ← AGREGAR para más info
-        raise HTTPException(status_code=500, detail=f"Error al crear gasto JSON: {str(e)}")
+        session.rollback()
+        print(f"❌ Error creando gasto: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
 # CREATE gasto desde FormData (con imagen)
 @router.post("/", response_model=GastoSchema, status_code=201)
