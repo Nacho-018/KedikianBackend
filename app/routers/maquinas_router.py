@@ -35,31 +35,19 @@ def get_maquinas(session: Session = Depends(get_db)):
 def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
     return get_all_maquinas_paginated(session, skip=skip, limit=limit)
 
-# ==================== HORÓMETRO INICIAL ====================
+# ==================== HORÓMETRO INICIAL (ACTUALIZADO) ====================
 
 @router.get("/horometro-inicial")
 def obtener_horometro_inicial_todas(session: Session = Depends(get_db)):
     """
-    Obtiene el último horómetro inicial registrado de todas las máquinas
+    Obtiene el horómetro inicial de todas las máquinas desde la tabla maquina
     """
-    from sqlalchemy import desc
-    
     maquinas = session.query(Maquina).all()
     resultado = {}
     
     for maquina in maquinas:
-        # Obtener el último reporte laboral de esta máquina
-        ultimo_reporte = session.query(ReporteLaboral).filter(
-            ReporteLaboral.maquina_id == maquina.id
-        ).order_by(desc(ReporteLaboral.fecha_asignacion)).first()
-        
-        if ultimo_reporte and ultimo_reporte.horometro_inicial is not None:
-            # Solo el horometro_inicial, sin sumar nada
-            horas_actuales = ultimo_reporte.horometro_inicial
-        else:
-            horas_actuales = 0
-        
-        resultado[maquina.id] = float(horas_actuales)
+        # Ahora tomamos el horometro_inicial directamente de la tabla maquina
+        resultado[maquina.id] = float(maquina.horometro_inicial or 0)
     
     return resultado
 
@@ -76,20 +64,14 @@ def obtener_horometro_inicial_maquina(
     session: Session = Depends(get_db)
 ):
     """
-    Obtiene el último horómetro inicial de una máquina específica
+    Obtiene el horómetro inicial de una máquina específica desde la tabla maquina
     """
-    from sqlalchemy import desc
+    maquina = session.query(Maquina).filter(Maquina.id == maquina_id).first()
     
-    ultimo_reporte = session.query(ReporteLaboral).filter(
-        ReporteLaboral.maquina_id == maquina_id
-    ).order_by(desc(ReporteLaboral.fecha_asignacion)).first()
+    if not maquina:
+        return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
     
-    if ultimo_reporte and ultimo_reporte.horometro_inicial is not None:
-        horometro_actual = ultimo_reporte.horometro_inicial
-    else:
-        horometro_actual = 0
-    
-    return {"horometro_inicial": float(horometro_actual)}
+    return {"horometro_inicial": float(maquina.horometro_inicial or 0)}
 
 @router.post("/", response_model=MaquinaSchema, status_code=201)
 def create_maquina(maquina: MaquinaCreate, session: Session = Depends(get_db)):

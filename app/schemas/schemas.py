@@ -134,6 +134,7 @@ class GastoOut(GastoBase):
 class MaquinaBase(BaseModel):
     nombre: str
     horas_uso: int = 0
+    horometro_inicial: Optional[float] = 0  # ✅ YA ESTÁ CORRECTO
 
 class MaquinaCreate(MaquinaBase):
     pass
@@ -143,6 +144,7 @@ class MaquinaSchema(BaseModel):
     nombre: str
     horas_uso: int = 0
     horas_maquina: int = 0
+    horometro_inicial: Optional[float] = 0  # ✅ AGREGAR ESTA LÍNEA
 
     class Config:
         from_attributes = True
@@ -152,6 +154,7 @@ class MaquinaOut(BaseModel):
     nombre: str
     horas_uso: int = 0
     horas_maquina: int = 0
+    horometro_inicial: Optional[float] = 0  # ✅ AGREGAR ESTA LÍNEA
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
 

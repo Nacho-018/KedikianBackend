@@ -1,15 +1,11 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from app.db.database import Base
-from sqlalchemy.sql import func
-
+# app/db/models.py
 class Maquina(Base):
     __tablename__ = "maquina"
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(50))
     horas_uso = Column(Integer, default=0)
     horas_maquina = Column(Integer, default=0)
-
+    horometro_inicial = Column(Float, default=0)  # ✅ AGREGAR ESTA LÍNEA
 
     # Relaciones
     reportes_laborales = relationship("ReporteLaboral", back_populates="maquina")

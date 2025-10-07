@@ -124,6 +124,10 @@ def delete_proyecto(db: Session, proyecto_id: int) -> bool:
     return False
 
 def get_maquinas_by_proyecto(db: Session, proyecto_id: int) -> List[dict]:
+    """
+    Obtiene las máquinas asignadas a un proyecto junto con sus horas totales.
+    CORRECCIÓN: Se eliminó el campo 'estado' que ya no existe en la tabla maquina.
+    """
     try:
         reportes = (
             db.query(ReporteLaboral)
@@ -142,7 +146,6 @@ def get_maquinas_by_proyecto(db: Session, proyecto_id: int) -> List[dict]:
                 maquinas_dict[maquina.id] = {
                     "id": maquina.id,
                     "nombre": maquina.nombre,
-                    "estado": maquina.estado,
                     "horas_totales": 0
                 }
             maquinas_dict[maquina.id]["horas_totales"] += reporte.horas_turno
@@ -152,7 +155,6 @@ def get_maquinas_by_proyecto(db: Session, proyecto_id: int) -> List[dict]:
     except Exception as e:
         print(f"[ERROR] get_maquinas_by_proyecto (proyecto_id={proyecto_id}): {e}")
         raise Exception(f"No se pudieron obtener las máquinas para el proyecto {proyecto_id}: {str(e)}")
-
 
 
 def get_aridos_by_proyecto(db: Session, proyecto_id: int):

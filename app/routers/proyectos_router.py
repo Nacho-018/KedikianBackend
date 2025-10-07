@@ -16,6 +16,7 @@ from app.services.proyecto_service import (
     get_all_proyectos_paginated
 )
 from app.security.auth import get_current_user
+from app.db.models import ReporteLaboral  # 👈 AGREGAR ESTE IMPORT
 
 router = APIRouter(prefix="/proyectos", tags=["Proyectos"], dependencies=[Depends(get_current_user)])
 
@@ -70,6 +71,34 @@ def get_aridos_proyecto(id: int, session: Session = Depends(get_db)):
     from app.services.proyecto_service import get_aridos_by_proyecto
     try:
         return get_aridos_by_proyecto(session, id)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+# 👇 AGREGAR ESTE NUEVO ENDPOINT
+@router.get("/{id}/reportes-laborales")
+def get_reportes_laborales_proyecto(id: int, session: Session = Depends(get_db)):
+    """
+    Obtiene todos los reportes laborales de un proyecto específico
+    """
+    try:
+        reportes = session.query(ReporteLaboral).filter(
+            ReporteLaboral.proyecto_id == id
+        ).all()
+        
+        return [
+            {
+                "id": r.id,
+                "maquina_id": r.maquina_id,
+                "usuario_id": r.usuario_id,
+                "proyecto_id": r.proyecto_id,
+                "fecha_asignacion": r.fecha_asignacion,
+                "horas_turno": r.horas_turno,
+                "horometro_inicial": r.horometro_inicial,
+                "created": r.created,
+                "updated": r.updated
+            }
+            for r in reportes
+        ]
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 

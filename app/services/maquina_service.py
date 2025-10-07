@@ -26,6 +26,10 @@ def create_maquina(db: Session, maquina: MaquinaCreate) -> MaquinaOut:
     maquina_data = maquina.model_dump()
     maquina_data['estado'] = True  # Agregar estado por defecto
     
+    # ✅ Asegurar que horometro_inicial tenga un valor por defecto
+    if 'horometro_inicial' not in maquina_data or maquina_data['horometro_inicial'] is None:
+        maquina_data['horometro_inicial'] = 0
+    
     nueva_maquina = Maquina(**maquina_data)
     db.add(nueva_maquina)
     db.commit()
@@ -40,6 +44,7 @@ def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Opti
     # Actualizar solo los campos que vienen en el request
     maquina_data = maquina.model_dump(exclude_unset=True)
     
+    # ✅ Asegurar que se actualice horometro_inicial si viene en los datos
     for field, value in maquina_data.items():
         setattr(existing, field, value)
     
