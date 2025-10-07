@@ -133,8 +133,7 @@ class GastoOut(GastoBase):
 # Maquina
 class MaquinaBase(BaseModel):
     nombre: str
-    estado: bool
-    horas_uso: int
+    horas_uso: int = 0
 
 class MaquinaCreate(MaquinaBase):
     pass
@@ -142,19 +141,19 @@ class MaquinaCreate(MaquinaBase):
 class MaquinaSchema(BaseModel):
     id: Optional[int] = None
     nombre: str
-    estado: bool = True
     horas_uso: int = 0
-    proyecto_id: Optional[int] = None
+    horas_maquina: int = 0
 
     class Config:
         from_attributes = True
 
 class MaquinaOut(BaseModel):
-    id: Optional[int] = None
+    id: int
     nombre: str
-    estado: bool = True
     horas_uso: int = 0
-    proyecto_id: Optional[int] = None
+    horas_maquina: int = 0
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -520,6 +519,17 @@ class HistorialHorasOut(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
+    class Config:
+        from_attributes = True
+
+class EstadisticasHorasOut(BaseModel):
+    """Schema para estadísticas de horas de una máquina"""
+    total_horas: float
+    total_registros: int
+    promedio_horas: float
+    fecha_primer_registro: Optional[datetime] = None
+    fecha_ultimo_registro: Optional[datetime] = None
+
     class Config:
         from_attributes = True
         

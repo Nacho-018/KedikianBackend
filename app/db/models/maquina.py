@@ -7,7 +7,6 @@ class Maquina(Base):
     __tablename__ = "maquina"
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(50))
-    estado = Column(Boolean, default=True)
     horas_uso = Column(Integer, default=0)
     horas_maquina = Column(Integer, default=0)
 
