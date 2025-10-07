@@ -40,8 +40,7 @@ def maquinas_paginado(skip: int = 0, limit: int = 15, session: Session = Depends
 @router.get("/horometro-inicial")
 def obtener_horometro_inicial_todas(session: Session = Depends(get_db)):
     """
-    Obtiene el horómetro actual de todas las máquinas
-    Calcula: último horometro_inicial + horas_turno de ese registro
+    Obtiene el último horómetro inicial registrado de todas las máquinas
     """
     from sqlalchemy import desc
     
@@ -55,10 +54,9 @@ def obtener_horometro_inicial_todas(session: Session = Depends(get_db)):
         ).order_by(desc(ReporteLaboral.fecha_asignacion)).first()
         
         if ultimo_reporte and ultimo_reporte.horometro_inicial is not None:
-            # Horometro actual = horometro inicial del último turno + horas trabajadas en ese turno
-            horas_actuales = ultimo_reporte.horometro_inicial + (ultimo_reporte.horas_turno or 0)
+            # Solo el horometro_inicial, sin sumar nada
+            horas_actuales = ultimo_reporte.horometro_inicial
         else:
-            # Si no hay reportes o no tiene horometro_inicial, usar 0
             horas_actuales = 0
         
         resultado[maquina.id] = float(horas_actuales)
@@ -78,7 +76,7 @@ def obtener_horometro_inicial_maquina(
     session: Session = Depends(get_db)
 ):
     """
-    Obtiene el horómetro actual de una máquina específica
+    Obtiene el último horómetro inicial de una máquina específica
     """
     from sqlalchemy import desc
     
@@ -87,7 +85,7 @@ def obtener_horometro_inicial_maquina(
     ).order_by(desc(ReporteLaboral.fecha_asignacion)).first()
     
     if ultimo_reporte and ultimo_reporte.horometro_inicial is not None:
-        horometro_actual = ultimo_reporte.horometro_inicial + (ultimo_reporte.horas_turno or 0)
+        horometro_actual = ultimo_reporte.horometro_inicial
     else:
         horometro_actual = 0
     
