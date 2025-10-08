@@ -73,6 +73,39 @@ def obtener_horometro_inicial_maquina(
     
     return {"horometro_inicial": float(maquina.horometro_inicial or 0)}
 
+@router.put("/{maquina_id}/horometro-inicial")
+def actualizar_horometro_inicial(
+    maquina_id: int,
+    datos: dict,
+    session: Session = Depends(get_db)
+):
+    """
+    Actualiza el horómetro inicial de una máquina específica
+    """
+    maquina = session.query(Maquina).filter(Maquina.id == maquina_id).first()
+    
+    if not maquina:
+        return JSONResponse(content={"error": "Máquina no encontrada"}, status_code=404)
+    
+    nuevo_horometro = datos.get('horometro_inicial')
+    
+    if nuevo_horometro is None:
+        return JSONResponse(content={"error": "El campo 'horometro_inicial' es requerido"}, status_code=400)
+    
+    if nuevo_horometro < 0:
+        return JSONResponse(content={"error": "El horómetro no puede ser negativo"}, status_code=400)
+    
+    # Actualizar el horómetro inicial en la tabla maquina
+    maquina.horometro_inicial = float(nuevo_horometro)
+    session.commit()
+    session.refresh(maquina)
+    
+    return {
+        "message": f"Horómetro actualizado correctamente",
+        "maquina_id": maquina.id,
+        "horometro_inicial": float(maquina.horometro_inicial)
+    }
+    
 @router.post("/", response_model=MaquinaSchema, status_code=201)
 def create_maquina(maquina: MaquinaCreate, session: Session = Depends(get_db)):
     return service_create_maquina(session, maquina)
