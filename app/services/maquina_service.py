@@ -1,15 +1,19 @@
 # servicio_maquinas.py
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
+import logging
 
-from app.db.models import Maquina, ReporteLaboral
+from app.db.models import Maquina, ReporteLaboral, Gasto, Arrendamiento, Mantenimiento
 from app.schemas.schemas import (
     MaquinaSchema, MaquinaCreate, MaquinaOut,
     RegistroHorasMaquinaCreate, HistorialHorasOut
 )
+
+logger = logging.getLogger(__name__)
 
 # ========== CRUD BÁSICO ==========
 
@@ -22,18 +26,25 @@ def get_maquina(db: Session, maquina_id: int) -> Optional[MaquinaOut]:
     return MaquinaOut.model_validate(maquina) if maquina else None
 
 def create_maquina(db: Session, maquina: MaquinaCreate) -> MaquinaOut:
-    # Crear máquina con estado=True por defecto
+    """
+    Crear una nueva máquina
+    """
+    # Obtener los datos del modelo Pydantic
     maquina_data = maquina.model_dump()
-    maquina_data['estado'] = True  # Agregar estado por defecto
     
-    # ✅ Asegurar que horometro_inicial tenga un valor por defecto
+    # ✅ Asegurar valores por defecto
     if 'horometro_inicial' not in maquina_data or maquina_data['horometro_inicial'] is None:
         maquina_data['horometro_inicial'] = 0
     
+    if 'horas_uso' not in maquina_data or maquina_data['horas_uso'] is None:
+        maquina_data['horas_uso'] = 0
+    
+    # Crear la instancia del modelo SQLAlchemy
     nueva_maquina = Maquina(**maquina_data)
     db.add(nueva_maquina)
     db.commit()
     db.refresh(nueva_maquina)
+    
     return MaquinaOut.model_validate(nueva_maquina)
 
 def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Optional[MaquinaOut]:
@@ -53,12 +64,66 @@ def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Opti
     return MaquinaOut.model_validate(existing)
 
 def delete_maquina(db: Session, maquina_id: int) -> bool:
-    maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
-    if not maquina:
-        return False
-    db.delete(maquina)
-    db.commit()
-    return True
+    try:
+        logger.info(f"Intentando eliminar máquina ID: {maquina_id}")
+        
+        maquina = db.query(Maquina).filter(Maquina.id == maquina_id).first()
+        if not maquina:
+            logger.warning(f"Máquina ID {maquina_id} no encontrada")
+            return False
+        
+        # Verificar TODAS las relaciones de la máquina
+        reportes_count = db.query(ReporteLaboral).filter(
+            ReporteLaboral.maquina_id == maquina_id
+        ).count()
+        
+        gastos_count = db.query(Gasto).filter(
+            Gasto.maquina_id == maquina_id
+        ).count()
+        
+        arrendamientos_count = db.query(Arrendamiento).filter(
+            Arrendamiento.maquina_id == maquina_id
+        ).count()
+        
+        mantenimientos_count = db.query(Mantenimiento).filter(
+            Mantenimiento.maquina_id == maquina_id
+        ).count()
+        
+        # Construir mensaje detallado con todos los registros asociados
+        registros_asociados = []
+        if reportes_count > 0:
+            registros_asociados.append(f"{reportes_count} reporte(s) laboral(es)")
+        if gastos_count > 0:
+            registros_asociados.append(f"{gastos_count} gasto(s)")
+        if arrendamientos_count > 0:
+            registros_asociados.append(f"{arrendamientos_count} arrendamiento(s)")
+        if mantenimientos_count > 0:
+            registros_asociados.append(f"{mantenimientos_count} mantenimiento(s)")
+        
+        # Si hay registros asociados, no permitir eliminar
+        if registros_asociados:
+            mensaje = f"La máquina tiene registros asociados: {', '.join(registros_asociados)}"
+            logger.warning(f"No se puede eliminar máquina {maquina_id}: {mensaje}")
+            raise ValueError(mensaje)
+        
+        # Si no hay registros asociados, proceder a eliminar
+        db.delete(maquina)
+        db.commit()
+        logger.info(f"Máquina {maquina_id} eliminada exitosamente")
+        return True
+        
+    except ValueError as ve:
+        db.rollback()
+        logger.error(f"Error de validación: {str(ve)}")
+        raise ve
+    except IntegrityError as ie:
+        db.rollback()
+        logger.error(f"Error de integridad: {str(ie)}")
+        raise ie
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error inesperado al eliminar máquina {maquina_id}: {type(e).__name__} - {str(e)}")
+        raise e
 
 def get_all_maquinas_paginated(db: Session, skip: int = 0, limit: int = 15):
     """
