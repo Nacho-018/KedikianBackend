@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from typing import List
 from app.db.dependencies import get_db
-from app.schemas.schemas import UsuarioSchema, UsuarioOut, UsuarioCreate
+from app.schemas.schemas import UsuarioSchema, UsuarioOut, UsuarioCreate, UsuarioUpdate
 from sqlalchemy.orm import Session
 from app.services.usuario_service import (
     get_usuarios as service_get_usuarios,
@@ -34,7 +34,7 @@ def create_usuario(usuario: UsuarioCreate, session: Session = Depends(get_db)):
     return service_create_usuario(session, usuario)
 
 @router.put("/{id}", response_model=UsuarioSchema, dependencies=[Depends(get_current_user)])
-def update_usuario(id: int, usuario: UsuarioSchema, session: Session = Depends(get_db)):
+def update_usuario(id: int, usuario: UsuarioUpdate, session: Session = Depends(get_db)):
     updated = service_update_usuario(session, id, usuario)
     if updated:
         return updated
