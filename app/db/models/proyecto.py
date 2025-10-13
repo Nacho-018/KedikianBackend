@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Date, BigInteger
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from sqlalchemy.sql import func
@@ -10,18 +10,21 @@ class Proyecto(Base):
     descripcion = Column(String(500), nullable=True)
     estado = Column(Boolean, default=True)
     fecha_creacion = Column(DateTime)
-    fecha_inicio = Column(DateTime, nullable=True)
-    fecha_fin = Column(DateTime, nullable=True)
+    fecha_inicio = Column(Date, nullable=True)
+    fecha_fin = Column(Date, nullable=True)  # Cambiar a Date y hacer opcional
     progreso = Column(Integer, default=0)
     gerente = Column(String(100), nullable=True)
-    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)
+    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)  # Ya es opcional
     ubicacion = Column(String(50))
+    contrato_file_path = Column(String(500), nullable=True)  # Nuevo campo
 
     # Relacion 1 a 1 con contratos
     contrato = relationship(
         "Contrato",
         back_populates="proyecto"
     )
+    # Relación con archivos de contrato
+    contrato_archivos = relationship("ContratoArchivo", back_populates="proyecto")
     arrendamientos = relationship("Arrendamiento", back_populates="proyecto")
     pagos = relationship("Pago", back_populates="proyecto")
     entrega_arido = relationship("EntregaArido", back_populates="proyecto")

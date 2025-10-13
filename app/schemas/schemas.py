@@ -240,25 +240,55 @@ class ProductoOut(ProductoBase):
     class Config:
         from_attributes = True
 
+# ContratoArchivo
+class ContratoArchivoBase(BaseModel):
+    proyecto_id: int
+    nombre_archivo: str
+    ruta_archivo: str
+    tipo_archivo: str
+    tamaño_archivo: int
+    fecha_subida: Optional[datetime] = None
+
+class ContratoArchivoCreate(ContratoArchivoBase):
+    pass
+
+class ContratoArchivoResponse(ContratoArchivoBase):
+    id: int
+    
+    class Config:
+        from_attributes = True
+
 # Proyecto
 class ProyectoBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
-    estado: bool
+    estado: bool = True
     fecha_creacion: Optional[datetime] = None
-    fecha_inicio: Optional[datetime] = None
-    fecha_fin: Optional[datetime] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None  # Hacer opcional
     progreso: Optional[int] = 0
     gerente: Optional[str] = None
-    contrato_id: Optional[int] = None
+    contrato_id: Optional[int] = None  # Ya es opcional
     ubicacion: str
+    contrato_file_path: Optional[str] = None  # Nuevo campo
 
 class ProyectoCreate(ProyectoBase):
+    pass
+
+class ProyectoUpdate(ProyectoBase):
     pass
 
 class ProyectoSchema(ProyectoBase):
     id: Optional[int] = None
 
+    class Config:
+        from_attributes = True
+
+class ProyectoResponse(ProyectoBase):
+    id: int
+    fecha_creacion: datetime
+    contrato_archivos: Optional[List[ContratoArchivoResponse]] = None
+    
     class Config:
         from_attributes = True
 

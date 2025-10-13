@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.middlewares.error_handler import ErrorHandler
 from app.db.seed_db import create_admin_user
 from app.routers import jornada_laboral_router
+import os
 # Importar los routers
 from app.routers import (
     usuarios_router,
@@ -54,6 +55,13 @@ app.add_middleware(
 
 # Montar la carpeta static para servir archivos estáticos
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Configurar directorio de uploads
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Middleware para servir archivos estáticos de uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.include_router(usuarios_router.router, prefix="/v1")
 app.include_router(maquinas_router.router, prefix="/v1")

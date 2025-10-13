@@ -1,7 +1,7 @@
 from .usuario import Usuario
 from .maquina import Maquina
 from .proyecto import Proyecto
-from .contrato import Contrato
+from .contrato import Contrato, ContratoArchivo
 from .gasto import Gasto
 from .pago import Pago
 from .producto import Producto
