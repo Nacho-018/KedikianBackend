@@ -259,7 +259,7 @@ class ProyectoOut(ProyectoBase):
 # ReporteLaboral
 class ReporteLaboralBase(BaseModel):
     maquina_id: int
-    usuario_id: int
+    usuario_id: Optional[int] = None
     proyecto_id: Optional[int] = Field(None, description="ID del proyecto asignado")  # ← Field para forzar inclusión
     fecha_asignacion: datetime
     horas_turno: int
