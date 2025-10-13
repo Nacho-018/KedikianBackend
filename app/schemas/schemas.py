@@ -259,25 +259,40 @@ class ContratoArchivoResponse(ContratoArchivoBase):
         from_attributes = True
 
 # Proyecto
+# ... (todo tu código anterior permanece igual hasta ProyectoBase)
+
+# Proyecto - ACTUALIZADO
 class ProyectoBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
     estado: bool = True
     fecha_creacion: Optional[datetime] = None
     fecha_inicio: Optional[date] = None
-    fecha_fin: Optional[date] = None  # Hacer opcional
+    fecha_fin: Optional[date] = None
     progreso: Optional[int] = 0
     gerente: Optional[str] = None
-    contrato_id: Optional[int] = None  # Ya es opcional
+    contrato_id: Optional[int] = None
     ubicacion: str
-    contrato_file_path: Optional[str] = None  # Nuevo campo
+    # NUEVOS CAMPOS para manejo de archivos
+    contrato_url: Optional[str] = None  # URL pública del contrato
+    contrato_nombre: Optional[str] = None  # Nombre del archivo
+    contrato_tipo: Optional[str] = None  # Tipo MIME
 
 class ProyectoCreate(ProyectoBase):
     pass
 
-class ProyectoUpdate(ProyectoBase):
-    pass
-
+class ProyectoUpdate(BaseModel):
+    """Schema para actualizar proyectos - todos los campos opcionales"""
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    estado: Optional[bool] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    progreso: Optional[int] = None
+    gerente: Optional[str] = None
+    contrato_id: Optional[int] = None
+    ubicacion: Optional[str] = None
+    
 class ProyectoSchema(ProyectoBase):
     id: Optional[int] = None
 
@@ -288,12 +303,19 @@ class ProyectoResponse(ProyectoBase):
     id: int
     fecha_creacion: datetime
     contrato_archivos: Optional[List[ContratoArchivoResponse]] = None
+    # Campos adicionales para el frontend
+    contrato_url: Optional[str] = None
+    contrato_nombre: Optional[str] = None
+    contrato_tipo: Optional[str] = None
     
     class Config:
         from_attributes = True
 
 class ProyectoOut(ProyectoBase):
     id: Optional[int] = None
+    contrato_url: Optional[str] = None
+    contrato_nombre: Optional[str] = None
+    contrato_tipo: Optional[str] = None
 
     class Config:
         from_attributes = True

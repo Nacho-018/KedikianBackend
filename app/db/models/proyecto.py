@@ -11,24 +11,28 @@ class Proyecto(Base):
     estado = Column(Boolean, default=True)
     fecha_creacion = Column(DateTime)
     fecha_inicio = Column(Date, nullable=True)
-    fecha_fin = Column(Date, nullable=True)  # Cambiar a Date y hacer opcional
+    fecha_fin = Column(Date, nullable=True)
     progreso = Column(Integer, default=0)
     gerente = Column(String(100), nullable=True)
-    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)  # Ya es opcional
+    contrato_id = Column(Integer, ForeignKey("contrato.id"), unique=True, nullable=True)
     ubicacion = Column(String(50))
-    contrato_file_path = Column(String(500), nullable=True)  # Nuevo campo
+    
+    # Campos para manejo de archivos de contrato
+    contrato_file_path = Column(String(500), nullable=True)  # Ruta física del archivo
+    contrato_url = Column(String(500), nullable=True)  # URL pública del contrato (opcional)
+    contrato_nombre = Column(String(255), nullable=True)  # Nombre original del archivo
+    contrato_tipo = Column(String(100), nullable=True)  # Tipo MIME del archivo
 
-    # Relacion 1 a 1 con contratos
-    contrato = relationship(
-        "Contrato",
-        back_populates="proyecto"
-    )
-    # Relación con archivos de contrato
-    contrato_archivos = relationship("ContratoArchivo", back_populates="proyecto")
+    # Relaciones
+    contrato = relationship("Contrato", back_populates="proyecto")
+    contrato_archivos = relationship("ContratoArchivo", back_populates="proyecto", cascade="all, delete-orphan")
     arrendamientos = relationship("Arrendamiento", back_populates="proyecto")
     pagos = relationship("Pago", back_populates="proyecto")
     entrega_arido = relationship("EntregaArido", back_populates="proyecto")
     reportes_laborales = relationship("ReporteLaboral", back_populates="proyecto")
+    
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())
     updated = Column(DateTime(timezone=True), onupdate=func.now())
+
+
