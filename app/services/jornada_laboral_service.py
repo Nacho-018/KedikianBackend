@@ -521,7 +521,105 @@ class JornadaLaboralService:
             'en_overtime': jornada.overtime_confirmado or False,
             'horas_trabajadas': round(jornada.total_horas, 2)
         }
-    
+    @staticmethod
+    def actualizar_jornada_completa(
+        db: Session,
+        jornada_id: int,
+        fecha: Optional[str] = None,
+        hora_inicio: Optional[str] = None,
+        hora_fin: Optional[str] = None,
+        tiempo_descanso: Optional[int] = None,
+        es_feriado: Optional[bool] = None,
+        notas_inicio: Optional[str] = None,
+        notas_fin: Optional[str] = None,
+        estado: Optional[str] = None
+    ) -> JornadaLaboral:
+        """
+        ✅ NUEVO: Actualiza una jornada laboral completa
+        Permite editar todos los campos principales de una jornada
+        """
+        from app.db.models.jornada_laboral import JornadaLaboral
+        from datetime import datetime, date as date_type
+        
+        print(f"✏️ Actualizando jornada ID: {jornada_id}")
+        
+        # Obtener la jornada existente
+        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
+        if not jornada:
+            print(f"❌ Jornada no encontrada: {jornada_id}")
+            raise HTTPException(status_code=404, detail="Jornada no encontrada")
+        
+        # Actualizar campos si se proporcionan
+        if fecha is not None:
+            try:
+                jornada.fecha = date_type.fromisoformat(fecha)
+                print(f"📅 Fecha actualizada: {jornada.fecha}")
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Formato de fecha inválido: {str(e)}")
+        
+        if hora_inicio is not None:
+            try:
+                jornada.hora_inicio = datetime.fromisoformat(hora_inicio)
+                print(f"⏰ Hora inicio actualizada: {jornada.hora_inicio}")
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Formato de hora_inicio inválido: {str(e)}")
+        
+        if hora_fin is not None:
+            try:
+                if hora_fin:  # Si no es None ni string vacío
+                    jornada.hora_fin = datetime.fromisoformat(hora_fin)
+                    print(f"🛑 Hora fin actualizada: {jornada.hora_fin}")
+                else:
+                    jornada.hora_fin = None
+                    print(f"🛑 Hora fin establecida a None")
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Formato de hora_fin inválido: {str(e)}")
+        
+        if tiempo_descanso is not None:
+            if tiempo_descanso < 0:
+                raise HTTPException(status_code=400, detail="El tiempo de descanso no puede ser negativo")
+            jornada.tiempo_descanso = tiempo_descanso
+            print(f"☕ Tiempo descanso actualizado: {tiempo_descanso} minutos")
+        
+        if es_feriado is not None:
+            jornada.es_feriado = es_feriado
+            print(f"🌟 Es feriado actualizado: {es_feriado}")
+        
+        if notas_inicio is not None:
+            jornada.notas_inicio = notas_inicio
+            print(f"📝 Notas inicio actualizadas")
+        
+        if notas_fin is not None:
+            jornada.notas_fin = notas_fin
+            print(f"📝 Notas fin actualizadas")
+        
+        if estado is not None:
+            estados_validos = ['activa', 'pausada', 'completada', 'cancelada']
+            if estado.lower() not in estados_validos:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Estado inválido. Debe ser uno de: {', '.join(estados_validos)}"
+                )
+            jornada.estado = estado.lower()
+            print(f"🔄 Estado actualizado: {jornada.estado}")
+        
+        # ✅ CRÍTICO: Recalcular horas si la jornada está completada o se modificaron horas
+        if jornada.hora_fin or jornada.estado == 'completada':
+            JornadaLaboralService._calcular_horas_trabajadas(jornada)
+            print(f"⏱️ Horas recalculadas: {jornada.total_horas}h total")
+        
+        try:
+            db.commit()
+            db.refresh(jornada)
+            
+            print(f"✅ Jornada {jornada_id} actualizada correctamente")
+            return jornada
+            
+        except Exception as e:
+            print(f"❌ Error guardando cambios: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al guardar cambios: {str(e)}")
+            
     @staticmethod
     def obtener_resumen_dia(db: Session, usuario_id: int, fecha: date) -> Dict[str, Any]:
         """

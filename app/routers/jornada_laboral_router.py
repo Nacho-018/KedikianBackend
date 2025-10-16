@@ -1,4 +1,4 @@
-# app/routers/jornada_laboral_router.py - VERSIÓN COMPLETAMENTE CORREGIDA
+# app/routers/jornada_laboral_router.py - VERSIÓN COMPLETAMENTE CORREGIDA CON PUT
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -34,6 +34,17 @@ class RechazarOvertimeRequest(BaseModel):
     tiempo_descanso: int = 60
     notas_fin: Optional[str] = None
 
+# ✅ NUEVO: Schema para actualización completa de jornada
+class ActualizarJornadaRequest(BaseModel):
+    fecha: Optional[str] = None
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    tiempo_descanso: Optional[int] = None
+    es_feriado: Optional[bool] = None
+    notas_inicio: Optional[str] = None
+    notas_fin: Optional[str] = None
+    estado: Optional[str] = None
+
 router = APIRouter(
     prefix="/jornadas-laborales", 
     tags=["Jornadas Laborales"], 
@@ -42,14 +53,12 @@ router = APIRouter(
 
 # ============ ENDPOINTS DE FICHAJE ============
 
-router.post("/fichar-entrada", response_model=JornadaLaboralResponse)
+@router.post("/fichar-entrada", response_model=JornadaLaboralResponse)
 async def fichar_entrada(
-    request: FicharEntradaRequest,  # ✅ CORREGIDO: Request body
+    request: FicharEntradaRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Fichar entrada usando Request Body JSON
-    """
+    """Fichar entrada usando Request Body JSON"""
     try:
         print(f"🚀 Fichando entrada para usuario: {request.usuario_id}")
         print(f"📝 Notas: {request.notas_inicio}")
@@ -76,7 +85,7 @@ async def fichar_entrada(
 @router.put("/finalizar/{jornada_id}", response_model=JornadaLaboralResponse)
 async def finalizar_jornada(
     jornada_id: int,
-    request: FinalizarJornadaRequest,  # ✅ CORREGIDO: Request body
+    request: FinalizarJornadaRequest,
     db: Session = Depends(get_db)
 ):
     try:
@@ -94,15 +103,52 @@ async def finalizar_jornada(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al finalizar jornada: {str(e)}")
 
+# ✅ NUEVO: Endpoint PUT para actualizar jornada completa
+@router.put("/{jornada_id}", response_model=JornadaLaboralResponse)
+async def actualizar_jornada(
+    jornada_id: int,
+    request: ActualizarJornadaRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ NUEVO: Actualiza una jornada laboral existente
+    Permite editar fecha, horas, descanso, notas, estado y si es feriado
+    """
+    try:
+        print(f"✏️ Actualizando jornada ID: {jornada_id}")
+        print(f"📝 Datos recibidos: {request.dict(exclude_none=True)}")
+        
+        jornada = JornadaLaboralService.actualizar_jornada_completa(
+            db=db,
+            jornada_id=jornada_id,
+            fecha=request.fecha,
+            hora_inicio=request.hora_inicio,
+            hora_fin=request.hora_fin,
+            tiempo_descanso=request.tiempo_descanso,
+            es_feriado=request.es_feriado,
+            notas_inicio=request.notas_inicio,
+            notas_fin=request.notas_fin,
+            estado=request.estado
+        )
+        
+        response = JornadaLaboralResponse.from_orm(jornada)
+        print(f"✅ Jornada actualizada correctamente: {response.id}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error actualizando jornada: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar jornada: {str(e)}")
+
 @router.put("/confirmar-overtime/{jornada_id}", response_model=JornadaLaboralResponse)
 async def confirmar_horas_extras(
     jornada_id: int,
     notas_overtime: Optional[str] = Query(None, description="Notas de horas extras"),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ NUEVO: Confirmar horas extras
-    """
+    """✅ Confirmar horas extras"""
     try:
         print(f"🕐 Confirmando horas extras para jornada: {jornada_id}")
         
@@ -130,9 +176,7 @@ async def rechazar_horas_extras(
     notas_fin: Optional[str] = Query(None, description="Notas de finalización"),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ NUEVO: Rechazar horas extras y finalizar en 9 horas
-    """
+    """✅ Rechazar horas extras y finalizar en 9 horas"""
     try:
         print(f"❌ Rechazando horas extras para jornada: {jornada_id}")
         
@@ -161,9 +205,7 @@ async def obtener_jornada_activa(
     usuario_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ CORREGIDO: Obtener jornada activa con respuesta null si no existe
-    """
+    """✅ Obtener jornada activa con respuesta null si no existe"""
     try:
         print(f"🔍 Buscando jornada activa para usuario: {usuario_id}")
         
@@ -179,7 +221,6 @@ async def obtener_jornada_activa(
             
     except Exception as e:
         print(f"❌ Error buscando jornada activa: {str(e)}")
-        # En lugar de error, devolver None
         return None
 
 @router.get("/usuario/{usuario_id}", response_model=List[JornadaLaboralResponse])
@@ -189,9 +230,7 @@ async def obtener_jornadas_usuario(
     offset: int = Query(0, description="Desde qué registro"),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener jornadas de un usuario
-    """
+    """✅ Obtener jornadas de un usuario"""
     try:
         print(f"📋 Obteniendo jornadas para usuario: {usuario_id} (limite: {limite}, offset: {offset})")
         
@@ -219,9 +258,7 @@ async def obtener_jornadas_periodo(
     limite: int = Query(50, description="Cantidad máxima de registros"),
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener jornadas por periodo
-    """
+    """✅ Obtener jornadas por periodo"""
     try:
         jornadas = JornadaLaboralService.obtener_jornadas_periodo(
             db=db,
@@ -244,9 +281,7 @@ async def obtener_estadisticas_mes(
     anio: int,
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener estadísticas del mes
-    """
+    """✅ Obtener estadísticas del mes"""
     try:
         print(f"📊 Obteniendo estadísticas para usuario {usuario_id}, {mes}/{anio}")
         
@@ -273,9 +308,7 @@ async def actualizar_estado_jornada(
     jornada_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Actualizar estado de jornada basado en tiempo transcurrido
-    """
+    """✅ Actualizar estado de jornada basado en tiempo transcurrido"""
     try:
         jornada = JornadaLaboralService.actualizar_estado_jornada(db, jornada_id)
         response = JornadaLaboralResponse.from_orm(jornada)
@@ -285,9 +318,7 @@ async def actualizar_estado_jornada(
 
 @router.get("/verificar-activas", response_model=List[JornadaLaboralResponse])
 async def verificar_jornadas_activas(db: Session = Depends(get_db)):
-    """
-    ✅ Verificar y actualizar jornadas activas (para tareas programadas)
-    """
+    """✅ Verificar y actualizar jornadas activas (para tareas programadas)"""
     try:
         jornadas = JornadaLaboralService.verificar_y_actualizar_jornadas_activas(db)
         response = [JornadaLaboralResponse.from_orm(j) for j in jornadas]
@@ -301,9 +332,7 @@ async def obtener_resumen_dia(
     fecha: date,
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Obtener resumen de jornadas para un día específico
-    """
+    """✅ Obtener resumen de jornadas para un día específico"""
     try:
         resumen = JornadaLaboralService.obtener_resumen_dia(db, usuario_id, fecha)
         return resumen
@@ -314,9 +343,7 @@ async def obtener_resumen_dia(
 
 @router.get("/test")
 async def test_endpoint():
-    """
-    ✅ Endpoint de prueba para verificar conectividad
-    """
+    """✅ Endpoint de prueba para verificar conectividad"""
     return {
         "message": "Router de jornadas laborales funcionando correctamente", 
         "status": "OK",
@@ -329,9 +356,7 @@ async def calcular_tiempo_restante(
     jornada_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    ✅ Calcular tiempo restante para diferentes límites
-    """
+    """✅ Calcular tiempo restante para diferentes límites"""
     try:
         jornada = JornadaLaboralService.obtener_jornada_por_id(db, jornada_id)
         if not jornada:
@@ -351,18 +376,14 @@ async def debug_jornada_usuario(
     usuario_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    🔧 ENDPOINT DE DEBUG - Solo para desarrollo
-    """
+    """🔧 ENDPOINT DE DEBUG - Solo para desarrollo"""
     try:
         from app.db.models.jornada_laboral import JornadaLaboral
         
-        # Obtener todas las jornadas del usuario
         all_jornadas = db.query(JornadaLaboral).filter(
             JornadaLaboral.usuario_id == usuario_id
         ).all()
         
-        # Jornada activa
         active_jornada = JornadaLaboralService.obtener_jornada_activa(db, usuario_id)
         
         return {
