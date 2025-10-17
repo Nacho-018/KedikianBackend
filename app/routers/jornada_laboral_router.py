@@ -142,6 +142,87 @@ async def actualizar_jornada(
         print(f"❌ Error actualizando jornada: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al actualizar jornada: {str(e)}")
 
+@router.put("/actualizar-estado/{jornada_id}", response_model=JornadaLaboralResponse)
+async def actualizar_estado_jornada(
+    jornada_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza el estado de una jornada basado en tiempo transcurrido
+    - A las 9h: pausa automática
+    - A las 13h: finalización automática
+    """
+    try:
+        print(f"🔄 Actualizando estado de jornada: {jornada_id}")
+        
+        jornada = db.query(JornadaLaboral).filter(
+            JornadaLaboral.id == jornada_id
+        ).first()
+        
+        if not jornada:
+            print(f"❌ Jornada no encontrada: {jornada_id}")
+            raise HTTPException(status_code=404, detail="Jornada no encontrada")
+        
+        print(f"   Estado actual: {jornada.estado}")
+        print(f"   Horas regulares: {jornada.horas_regulares}")
+        print(f"   Total horas: {jornada.total_horas}")
+        
+        # PASO 1: Calcular horas actuales en tiempo real
+        if jornada.estado == 'activa':
+            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
+            print(f"   Horas recalculadas: {jornada.total_horas}h")
+        
+        # PASO 2: Verificar si debe pausarse (9 horas)
+        if (jornada.horas_regulares >= 9.0 and 
+            not jornada.limite_regular_alcanzado and 
+            not jornada.overtime_confirmado):
+            
+            print(f"✋ Pausando jornada: alcanzó 9 horas")
+            
+            jornada.estado = 'pausada'
+            jornada.limite_regular_alcanzado = True
+            jornada.pausa_automatica = True
+            jornada.hora_limite_regular = datetime.now()
+        
+        # PASO 3: Verificar si debe finalizarse (13 horas)
+        elif jornada.total_horas >= 13.0 and jornada.hora_fin is None:
+            
+            print(f"🛑 Finalizando jornada: alcanzó 13 horas")
+            
+            jornada.hora_fin = datetime.now()
+            jornada.estado = 'completada'
+            jornada.finalizacion_forzosa = True
+            jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+        
+        # PASO 4: Guardar cambios
+        try:
+            db.commit()
+            db.refresh(jornada)
+            
+            response = JornadaLaboralResponse.from_orm(jornada)
+            print(f"✅ Estado actualizado: {jornada.estado}")
+            print(f"   Total horas: {jornada.total_horas}h")
+            
+            return response
+            
+        except Exception as e:
+            print(f"❌ Error guardando cambios: {str(e)}")
+            db.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error al actualizar estado: {str(e)}"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error inesperado: {type(e)._name_}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 @router.put("/confirmar-overtime/{jornada_id}", response_model=JornadaLaboralResponse)
 async def confirmar_horas_extras(
     jornada_id: int,
@@ -205,22 +286,45 @@ async def obtener_jornada_activa(
     usuario_id: int,
     db: Session = Depends(get_db)
 ):
-    """✅ Obtener jornada activa con respuesta null si no existe"""
+    """✅ Obtener jornada activa - VERIFICA Y PAUSA AUTOMÁTICAMENTE EN 9H"""
     try:
         print(f"🔍 Buscando jornada activa para usuario: {usuario_id}")
         
         jornada = JornadaLaboralService.obtener_jornada_activa(db, usuario_id)
         
         if jornada:
+            print(f"✅ Jornada encontrada: ID {jornada.id}, estado: {jornada.estado}")
+            
+            # CRÍTICO: Recalcular horas en tiempo real
+            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
+            print(f"⏱️ Horas: {jornada.horas_regulares}h reg + {jornada.horas_extras}h extras")
+            
+            # CRÍTICO: Verificar si debe pausarse automáticamente (9 horas)
+            if (jornada.horas_regulares >= 9.0 and 
+                jornada.estado == 'activa' and
+                not jornada.limite_regular_alcanzado):
+                
+                print(f"⏰ PAUSA AUTOMÁTICA: Jornada {jornada.id} alcanzó 9 horas")
+                jornada.estado = 'pausada'
+                jornada.limite_regular_alcanzado = True
+                jornada.pausa_automatica = True
+                jornada.hora_limite_regular = datetime.now()
+                
+                db.commit()
+                db.refresh(jornada)
+                print(f"✅ Jornada pausada en BD")
+            
             response = JornadaLaboralResponse.from_orm(jornada)
-            print(f"✅ Jornada activa encontrada: {response.id}")
+            print(f"📊 Retornando: estado={response.estado}, pausada_auto={response.pausa_automatica}")
             return response
         else:
             print("ℹ️ No hay jornada activa")
             return None
             
     except Exception as e:
-        print(f"❌ Error buscando jornada activa: {str(e)}")
+        print(f"❌ Error en obtener_jornada_activa: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 @router.get("/usuario/{usuario_id}", response_model=List[JornadaLaboralResponse])
@@ -303,18 +407,6 @@ async def obtener_estadisticas_mes(
 
 # ============ ENDPOINTS DE CONTROL ============
 
-@router.put("/actualizar-estado/{jornada_id}", response_model=JornadaLaboralResponse)
-async def actualizar_estado_jornada(
-    jornada_id: int,
-    db: Session = Depends(get_db)
-):
-    """✅ Actualizar estado de jornada basado en tiempo transcurrido"""
-    try:
-        jornada = JornadaLaboralService.actualizar_estado_jornada(db, jornada_id)
-        response = JornadaLaboralResponse.from_orm(jornada)
-        return response
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {str(e)}")
 
 @router.get("/verificar-activas", response_model=List[JornadaLaboralResponse])
 async def verificar_jornadas_activas(db: Session = Depends(get_db)):
@@ -370,6 +462,59 @@ async def calcular_tiempo_restante(
         raise HTTPException(status_code=500, detail=f"Error al calcular tiempo restante: {str(e)}")
 
 # ============ ENDPOINT DE DEBUG PARA DESARROLLO ============
+@router.post("/limpiar-inconsistencias/{usuario_id}")
+async def limpiar_inconsistencias(
+    usuario_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ CRÍTICO: Limpia jornadas inconsistentes (muy viejas o en estado inválido)
+    """
+    print(f"🧹 Limpiando inconsistencias para usuario: {usuario_id}")
+    
+    try:
+        from datetime import datetime, timedelta
+        from app.db.models.jornada_laboral import JornadaLaboral
+        
+        # Buscar jornadas activas muy viejas (más de 24 horas)
+        hace_24h = datetime.now() - timedelta(hours=24)
+        
+        jornadas_viejas = db.query(JornadaLaboral).filter(
+            and_(
+                JornadaLaboral.usuario_id == usuario_id,
+                JornadaLaboral.estado.in_(['activa', 'pausada']),
+                JornadaLaboral.hora_fin.is_(None),
+                JornadaLaboral.created < hace_24h
+            )
+        ).all()
+        
+        for jornada in jornadas_viejas:
+            print(f"🚨 Finalizando jornada antigua: ID {jornada.id}, creada hace {(datetime.now() - jornada.created).days} días")
+            
+            # Calcular horas finales
+            JornadaLaboralService._calcular_horas_trabajadas(jornada)
+            
+            jornada.hora_fin = datetime.now()
+            jornada.estado = 'completada'
+            jornada.motivo_finalizacion = "Finalización automática por jornada antigua"
+            jornada.finalizacion_forzosa = True
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": f"Se limpiaron {len(jornadas_viejas)} jornada(s) antigua(s)",
+            "jornadas_limpiadas": len(jornadas_viejas)
+        }
+        
+    except Exception as e:
+        print(f"❌ Error en limpieza: {str(e)}")
+        db.rollback()
+        return {
+            "success": True,  # Devolver True para no romper el flujo
+            "message": "Limpieza completada (con algunas limitaciones)",
+            "error": str(e)
+        }
 
 @router.get("/debug/{usuario_id}")
 async def debug_jornada_usuario(

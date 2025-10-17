@@ -619,7 +619,65 @@ class JornadaLaboralService:
             print(f"❌ Error guardando cambios: {str(e)}")
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Error al guardar cambios: {str(e)}")
+    
+    @staticmethod
+def obtener_jornada_activa(db: Session, usuario_id: int) -> Optional[JornadaLaboral]:
+    """
+    ✅ CORREGIDO: Obtiene la jornada activa verificando inconsistencias
+    """
+    from datetime import datetime, timedelta
+    
+    jornada = db.query(JornadaLaboral).filter(
+        and_(
+            JornadaLaboral.usuario_id == usuario_id,
+            JornadaLaboral.estado.in_(['activa', 'pausada']),
+            JornadaLaboral.hora_fin.is_(None)
+        )
+    ).order_by(desc(JornadaLaboral.created)).first()
+    
+    if jornada:
+        # ✅ NUEVA VALIDACIÓN: Verificar que no sea demasiado vieja
+        hace_24h = datetime.now() - timedelta(hours=24)
+        if jornada.created < hace_24h:
+            print(f"⚠️ Jornada demasiado antigua ({jornada.id}), finalizando automáticamente")
             
+            # Finalizar automáticamente
+            JornadaLaboralService._calcular_horas_trabajadas(jornada)
+            jornada.hora_fin = datetime.now()
+            jornada.estado = 'completada'
+            jornada.motivo_finalizacion = "Finalización automática - jornada antigua"
+            jornada.finalizacion_forzosa = True
+            
+            db.commit()
+            db.refresh(jornada)
+            
+            # Retornar None porque ya está finalizada
+            return None
+        
+        # ✅ Actualizar horas en tiempo real si está activa
+        if jornada.estado == 'activa':
+            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
+            
+            # ✅ Verificar si debe auto-finalizarse por límite de 13 horas
+            if jornada.total_horas >= 13.0:
+                print(f"🚨 Jornada {jornada.id} alcanzó 13 horas, finalizando automáticamente")
+                jornada.hora_fin = datetime.now()
+                jornada.estado = 'completada'
+                jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+                jornada.finalizacion_forzosa = True
+                db.commit()
+                db.refresh(jornada)
+                return None
+        
+        print(f"✅ Jornada activa encontrada: ID {jornada.id}, estado: {jornada.estado}")
+        return jornada
+    
+    # ✅ FIX CRÍTICO: Esta parte debe estar correctamente indentada
+    print(f"ℹ️ No hay jornada activa para usuario {usuario_id}")
+    return None
+
+
+
     @staticmethod
     def obtener_resumen_dia(db: Session, usuario_id: int, fecha: date) -> Dict[str, Any]:
         """
