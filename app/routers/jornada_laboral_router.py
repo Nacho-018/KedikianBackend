@@ -14,7 +14,8 @@ from app.schemas.schemas import (
 )
 from app.services.jornada_laboral_service import JornadaLaboralService
 from app.security.auth import get_current_user
-
+from sqlalchemy import and_, desc
+from app.db.models.jornada_laboral import JornadaLaboral
 # ✅ SCHEMAS CORREGIDOS PARA REQUEST BODY
 class FicharEntradaRequest(BaseModel):
     usuario_id: int
@@ -532,6 +533,84 @@ async def limpiar_inconsistencias(
             "error": str(e)
         }
 
+@router.delete("/{jornada_id}", status_code=200)
+async def eliminar_jornada(
+    jornada_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ NUEVO: Eliminar una jornada laboral
+    
+    Permite eliminar una jornada laboral completamente.
+    Útil para correcciones de errores de fichaje.
+    
+    Args:
+        jornada_id: ID de la jornada a eliminar
+        
+    Returns:
+        Mensaje de confirmación
+        
+    Raises:
+        HTTPException 404: Si la jornada no existe
+        HTTPException 500: Si hay un error en la eliminación
+    """
+    try:
+        print(f"🗑️ Intentando eliminar jornada ID: {jornada_id}")
+        
+        # Buscar la jornada
+        jornada = db.query(JornadaLaboral).filter(
+            JornadaLaboral.id == jornada_id
+        ).first()
+        
+        if not jornada:
+            print(f"❌ Jornada no encontrada: {jornada_id}")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Jornada con ID {jornada_id} no encontrada"
+            )
+        
+        # Guardar información para el log
+        usuario_id = jornada.usuario_id
+        fecha = jornada.fecha
+        estado = jornada.estado
+        
+        print(f"📋 Datos de jornada a eliminar:")
+        print(f"   - Usuario ID: {usuario_id}")
+        print(f"   - Fecha: {fecha}")
+        print(f"   - Estado: {estado}")
+        print(f"   - Total horas: {jornada.total_horas}")
+        
+        # Eliminar la jornada
+        db.delete(jornada)
+        db.commit()
+        
+        print(f"✅ Jornada eliminada exitosamente: ID {jornada_id}")
+        
+        return {
+            "success": True,
+            "message": f"Jornada laboral eliminada correctamente",
+            "jornada_eliminada": {
+                "id": jornada_id,
+                "usuario_id": usuario_id,
+                "fecha": fecha.isoformat() if fecha else None,
+                "estado": estado,
+                "total_horas": jornada.total_horas
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error al eliminar jornada: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al eliminar la jornada: {str(e)}"
+        )
+        
 @router.get("/debug/{usuario_id}")
 async def debug_jornada_usuario(
     usuario_id: int,
