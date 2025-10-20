@@ -281,30 +281,39 @@ async def rechazar_horas_extras(
 
 # ============ ENDPOINTS DE CONSULTA ============
 
-@router.get("/activa/{usuario_id}", response_model=Optional[JornadaLaboralResponse])
+@router.get("/activa/usuario/{usuario_id}", response_model=Optional[JornadaLaboralResponse])
 async def obtener_jornada_activa(
     usuario_id: int,
     db: Session = Depends(get_db)
 ):
-    """✅ Obtener jornada activa - VERIFICA Y PAUSA AUTOMÁTICAMENTE EN 9H"""
+    """
+    ✅ CORREGIDO: Obtener jornada activa con cálculo en tiempo real
+    """
     try:
         print(f"🔍 Buscando jornada activa para usuario: {usuario_id}")
         
-        jornada = JornadaLaboralService.obtener_jornada_activa(db, usuario_id)
+        jornada = db.query(JornadaLaboral).filter(
+            and_(
+                JornadaLaboral.usuario_id == usuario_id,
+                JornadaLaboral.estado.in_(['activa', 'pausada']),
+                JornadaLaboral.hora_fin.is_(None)
+            )
+        ).order_by(desc(JornadaLaboral.created)).first()
         
-        if jornada:
-            print(f"✅ Jornada encontrada: ID {jornada.id}, estado: {jornada.estado}")
-            
-            # CRÍTICO: Recalcular horas en tiempo real
-            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
-            print(f"⏱️ Horas: {jornada.horas_regulares}h reg + {jornada.horas_extras}h extras")
-            
-            # CRÍTICO: Verificar si debe pausarse automáticamente (9 horas)
-            if (jornada.horas_regulares >= 9.0 and 
-                jornada.estado == 'activa' and
-                not jornada.limite_regular_alcanzado):
-                
-                print(f"⏰ PAUSA AUTOMÁTICA: Jornada {jornada.id} alcanzó 9 horas")
+        if not jornada:
+            print(f"ℹ️ No hay jornada activa")
+            return None
+        
+        print(f"✅ Jornada activa encontrada: ID {jornada.id}, estado: {jornada.estado}")
+        
+        # ✅ CRÍTICO: Calcular horas en tiempo real
+        JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
+        
+        # ✅ CRÍTICO: Verificar y actualizar estado automáticamente
+        if jornada.estado == 'activa':
+            # Verificar si debe pausarse en 9 horas
+            if jornada.horas_regulares >= 9.0 and not jornada.limite_regular_alcanzado:
+                print(f"⏰ Auto-pausando jornada: alcanzó 9 horas")
                 jornada.estado = 'pausada'
                 jornada.limite_regular_alcanzado = True
                 jornada.pausa_automatica = True
@@ -312,20 +321,27 @@ async def obtener_jornada_activa(
                 
                 db.commit()
                 db.refresh(jornada)
-                print(f"✅ Jornada pausada en BD")
             
-            response = JornadaLaboralResponse.from_orm(jornada)
-            print(f"📊 Retornando: estado={response.estado}, pausada_auto={response.pausa_automatica}")
-            return response
-        else:
-            print("ℹ️ No hay jornada activa")
-            return None
-            
+            # Verificar si debe finalizarse en 13 horas
+            elif jornada.total_horas >= 13.0:
+                print(f"🛑 Auto-finalizando jornada: alcanzó 13 horas")
+                jornada.hora_fin = datetime.now()
+                jornada.estado = 'completada'
+                jornada.finalizacion_forzosa = True
+                jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+                
+                db.commit()
+                db.refresh(jornada)
+                return None  # Ya no está activa
+        
+        response = JornadaLaboralResponse.from_orm(jornada)
+        return response
+        
     except Exception as e:
-        print(f"❌ Error en obtener_jornada_activa: {str(e)}")
+        print(f"❌ Error obteniendo jornada activa: {str(e)}")
         import traceback
         traceback.print_exc()
-        return None
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/usuario/{usuario_id}", response_model=List[JornadaLaboralResponse])
 async def obtener_jornadas_usuario(
