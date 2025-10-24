@@ -150,48 +150,68 @@ class JornadaLaboralService:
             raise HTTPException(status_code=500, detail=f"Error al finalizar jornada: {str(e)}")
     
     @staticmethod
-    def confirmar_horas_extras(
-        db: Session,
-        jornada_id: int,
-        notas_overtime: Optional[str] = None
-    ) -> JornadaLaboral:
-        """
-        ✅ NUEVO: Confirma las horas extras y reanuda la jornada
-        """
-        print(f"🕐 Confirmando horas extras para jornada: {jornada_id}")
+def confirmar_horas_extras(
+    db: Session,
+    jornada_id: int,
+    notas_overtime: Optional[str] = None
+) -> JornadaLaboral:
+    """
+    ✅ CORREGIDO: Confirma las horas extras y reanuda la jornada
+    """
+    print(f"🕐 Confirmando horas extras para jornada: {jornada_id}")
+    
+    jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
+    if not jornada:
+        raise HTTPException(status_code=404, detail="Jornada no encontrada")
+    
+    # ✅ VALIDACIÓN 1: Verificar que la jornada esté en estado pausado
+    if jornada.estado != 'pausada':
+        print(f"❌ Jornada en estado incorrecto: {jornada.estado} (debe ser 'pausada')")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"La jornada debe estar en estado 'pausada'. Estado actual: '{jornada.estado}'"
+        )
+    
+    # ✅ VALIDACIÓN 2: Verificar que haya completado 9 horas
+    if not jornada.limite_regular_alcanzado:
+        print(f"❌ Límite regular no alcanzado: {jornada.horas_regulares}h")
+        raise HTTPException(
+            status_code=400, 
+            detail="No se han completado las 9 horas regulares"
+        )
+    
+    # ✅ VALIDACIÓN 3: Verificar que no haya finalizado
+    if jornada.hora_fin is not None:
+        print(f"❌ Jornada ya finalizada en: {jornada.hora_fin}")
+        raise HTTPException(
+            status_code=400,
+            detail="La jornada ya está finalizada"
+        )
+    
+    # ✅ CRÍTICO: Reactivar la jornada para horas extras
+    jornada.estado = 'activa'
+    jornada.overtime_confirmado = True
+    jornada.overtime_iniciado = datetime.now()
+    jornada.overtime_solicitado = True
+    
+    if notas_overtime:
+        current_notes = jornada.notas_fin or ''
+        jornada.notas_fin = f"{current_notes} | Overtime: {notas_overtime}".strip()
+    
+    try:
+        db.commit()
+        db.refresh(jornada)
         
-        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
-        if not jornada:
-            raise HTTPException(status_code=404, detail="Jornada no encontrada")
+        print(f"✅ Horas extras confirmadas y jornada reactivada")
+        print(f"   - Estado: {jornada.estado}")
+        print(f"   - Overtime confirmado: {jornada.overtime_confirmado}")
         
-        # ✅ Verificar que esté en estado pausado y que haya completado 9h
-        if not jornada.limite_regular_alcanzado:
-            raise HTTPException(
-                status_code=400, 
-                detail="No se han completado las 9 horas regulares"
-            )
+        return jornada
         
-        # ✅ CRÍTICO: Reactivar la jornada para horas extras
-        jornada.estado = 'activa'
-        jornada.overtime_confirmado = True
-        jornada.overtime_iniciado = datetime.now()
-        jornada.overtime_solicitado = True
-        
-        if notas_overtime:
-            current_notes = jornada.notas_fin or ''
-            jornada.notas_fin = f"{current_notes} | Overtime: {notas_overtime}".strip()
-        
-        try:
-            db.commit()
-            db.refresh(jornada)
-            
-            print(f"✅ Horas extras confirmadas y jornada reactivada")
-            return jornada
-            
-        except Exception as e:
-            print(f"❌ Error confirmando horas extras: {str(e)}")
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error al confirmar horas extras: {str(e)}")
+    except Exception as e:
+        print(f"❌ Error confirmando horas extras: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al confirmar horas extras: {str(e)}")
     
     @staticmethod
     def rechazar_horas_extras(
