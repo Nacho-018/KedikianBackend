@@ -1,4 +1,4 @@
-# app/services/jornada_laboral_service.py - VERSIÓN COMPLETA CORREGIDA
+# app/services/jornada_laboral_service.py - VERSIÓN COMPLETAMENTE AUTOMATIZADA
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, extract, func, desc
@@ -20,12 +20,10 @@ class JornadaLaboralService:
         notas_inicio: Optional[str] = None,
         ubicacion: Optional[Dict] = None
     ) -> JornadaLaboral:
-        """
-        ✅ CORREGIDO: Inicia una nueva jornada laboral
-        """
+        """✅ Inicia una nueva jornada laboral"""
         print(f"🚀 Iniciando jornada para usuario {usuario_id}")
         
-        # ✅ CRÍTICO: Verificar que no haya una jornada activa
+        # Verificar que no haya una jornada activa
         jornada_existente = JornadaLaboralService.obtener_jornada_activa(db, usuario_id)
         if jornada_existente:
             print(f"❌ Ya existe jornada activa: {jornada_existente.id}")
@@ -34,19 +32,15 @@ class JornadaLaboralService:
                 detail=f"Ya existe una jornada laboral activa (ID: {jornada_existente.id})"
             )
         
-        # ✅ Verificar que el usuario existe
+        # Verificar que el usuario existe
         usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
         if not usuario:
-            print(f"❌ Usuario no encontrado: {usuario_id}")
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
         now = datetime.now()
         today = now.date()
         
-        print(f"📅 Creando jornada para fecha: {today}")
-        print(f"⏰ Hora de inicio: {now}")
-        
-        # ✅ CRÍTICO: Crear nueva jornada con todos los campos
+        # Crear nueva jornada
         jornada = JornadaLaboral(
             usuario_id=usuario_id,
             fecha=today,
@@ -55,8 +49,6 @@ class JornadaLaboralService:
             notas_inicio=notas_inicio,
             ubicacion_inicio=json.dumps(ubicacion) if ubicacion else None,
             es_feriado=JornadaLaboralService._es_feriado(today),
-            
-            # ✅ Inicializar campos de control
             tiempo_descanso=0,
             horas_regulares=0.0,
             horas_extras=0.0,
@@ -92,32 +84,24 @@ class JornadaLaboralService:
         ubicacion: Optional[Dict] = None,
         forzado: bool = False
     ) -> JornadaLaboral:
-        """
-        ✅ CORREGIDO: Finaliza una jornada laboral
-        """
+        """✅ Finaliza una jornada laboral"""
         print(f"🛑 Finalizando jornada ID: {jornada_id}")
         
         jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
         if not jornada:
-            print(f"❌ Jornada no encontrada: {jornada_id}")
             raise HTTPException(status_code=404, detail="Jornada no encontrada")
         
-        # ✅ Verificar que la jornada esté en estado válido para finalizar
         if jornada.estado not in ['activa', 'pausada']:
-            print(f"❌ Jornada en estado inválido: {jornada.estado}")
             raise HTTPException(
                 status_code=400, 
                 detail=f"La jornada está en estado '{jornada.estado}' y no puede ser finalizada"
             )
         
-        # ✅ Si ya está finalizada, no hacer nada
         if jornada.hora_fin is not None:
-            print(f"⚠️ Jornada ya finalizada: {jornada.hora_fin}")
             return jornada
         
         now = datetime.now()
         
-        # ✅ Actualizar campos de finalización
         jornada.hora_fin = now
         jornada.estado = 'completada'
         jornada.tiempo_descanso = tiempo_descanso
@@ -134,14 +118,13 @@ class JornadaLaboralService:
         else:
             jornada.motivo_finalizacion = "Finalización normal"
         
-        # ✅ CRÍTICO: Calcular horas trabajadas
         JornadaLaboralService._calcular_horas_trabajadas(jornada)
         
         try:
             db.commit()
             db.refresh(jornada)
             
-            print(f"✅ Jornada finalizada: Total {jornada.total_horas}h ({jornada.horas_regulares}h regulares + {jornada.horas_extras}h extras)")
+            print(f"✅ Jornada finalizada: {jornada.total_horas}h ({jornada.horas_regulares}h + {jornada.horas_extras}h extras)")
             return jornada
             
         except Exception as e:
@@ -150,68 +133,70 @@ class JornadaLaboralService:
             raise HTTPException(status_code=500, detail=f"Error al finalizar jornada: {str(e)}")
     
     @staticmethod
-def confirmar_horas_extras(
-    db: Session,
-    jornada_id: int,
-    notas_overtime: Optional[str] = None
-) -> JornadaLaboral:
-    """
-    ✅ CORREGIDO: Confirma las horas extras y reanuda la jornada
-    """
-    print(f"🕐 Confirmando horas extras para jornada: {jornada_id}")
-    
-    jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
-    if not jornada:
-        raise HTTPException(status_code=404, detail="Jornada no encontrada")
-    
-    # ✅ VALIDACIÓN 1: Verificar que la jornada esté en estado pausado
-    if jornada.estado != 'pausada':
-        print(f"❌ Jornada en estado incorrecto: {jornada.estado} (debe ser 'pausada')")
-        raise HTTPException(
-            status_code=400, 
-            detail=f"La jornada debe estar en estado 'pausada'. Estado actual: '{jornada.estado}'"
-        )
-    
-    # ✅ VALIDACIÓN 2: Verificar que haya completado 9 horas
-    if not jornada.limite_regular_alcanzado:
-        print(f"❌ Límite regular no alcanzado: {jornada.horas_regulares}h")
-        raise HTTPException(
-            status_code=400, 
-            detail="No se han completado las 9 horas regulares"
-        )
-    
-    # ✅ VALIDACIÓN 3: Verificar que no haya finalizado
-    if jornada.hora_fin is not None:
-        print(f"❌ Jornada ya finalizada en: {jornada.hora_fin}")
-        raise HTTPException(
-            status_code=400,
-            detail="La jornada ya está finalizada"
-        )
-    
-    # ✅ CRÍTICO: Reactivar la jornada para horas extras
-    jornada.estado = 'activa'
-    jornada.overtime_confirmado = True
-    jornada.overtime_iniciado = datetime.now()
-    jornada.overtime_solicitado = True
-    
-    if notas_overtime:
-        current_notes = jornada.notas_fin or ''
-        jornada.notas_fin = f"{current_notes} | Overtime: {notas_overtime}".strip()
-    
-    try:
-        db.commit()
-        db.refresh(jornada)
+    def confirmar_horas_extras(
+        db: Session,
+        jornada_id: int,
+        notas_overtime: Optional[str] = None
+    ) -> JornadaLaboral:
+        """
+        ✅ CORREGIDO COMPLETAMENTE: Confirma las horas extras
+        - Acepta jornadas activas Y pausadas
+        - Calcula horas en tiempo real
+        - Previene confirmación duplicada
+        """
+        print(f"🕐 Confirmando horas extras para jornada: {jornada_id}")
         
-        print(f"✅ Horas extras confirmadas y jornada reactivada")
-        print(f"   - Estado: {jornada.estado}")
-        print(f"   - Overtime confirmado: {jornada.overtime_confirmado}")
+        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
+        if not jornada:
+            raise HTTPException(status_code=404, detail="Jornada no encontrada")
         
-        return jornada
+        # ✅ NUEVO: Calcular horas en tiempo real PRIMERO
+        if jornada.estado in ['activa', 'pausada']:
+            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
+            print(f"   Horas calculadas: {jornada.horas_regulares:.2f}h regulares")
         
-    except Exception as e:
-        print(f"❌ Error confirmando horas extras: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al confirmar horas extras: {str(e)}")
+        # ✅ VALIDACIÓN 1: Estado activo o pausado
+        if jornada.estado not in ['activa', 'pausada']:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"La jornada debe estar activa o pausada. Estado actual: '{jornada.estado}'"
+            )
+        
+        # ✅ VALIDACIÓN 2: Mínimo 9 horas
+        if jornada.horas_regulares < 9.0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Debes completar 9 horas regulares. Horas actuales: {jornada.horas_regulares:.2f}h"
+            )
+        
+        # ✅ VALIDACIÓN 3: No finalizada
+        if jornada.hora_fin is not None:
+            raise HTTPException(status_code=400, detail="La jornada ya está finalizada")
+        
+        # ✅ VALIDACIÓN 4: No duplicar
+        if jornada.overtime_confirmado:
+            print(f"⚠️ Horas extras ya confirmadas")
+            return jornada
+        
+        # ✅ ACTIVAR HORAS EXTRAS
+        jornada.estado = 'activa'
+        jornada.overtime_confirmado = True
+        jornada.overtime_iniciado = datetime.now()
+        jornada.overtime_solicitado = True
+        jornada.limite_regular_alcanzado = True
+        jornada.pausa_automatica = False
+        
+        if notas_overtime:
+            jornada.notas_fin = f"{jornada.notas_fin or ''} | Overtime: {notas_overtime}".strip()
+        
+        try:
+            db.commit()
+            db.refresh(jornada)
+            print(f"✅ Horas extras confirmadas: {jornada.horas_regulares:.2f}h regulares")
+            return jornada
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
     
     @staticmethod
     def rechazar_horas_extras(
@@ -220,21 +205,12 @@ def confirmar_horas_extras(
         tiempo_descanso: int = 60,
         notas_fin: Optional[str] = None
     ) -> JornadaLaboral:
-        """
-        ✅ NUEVO: Rechaza las horas extras y finaliza la jornada en 9 horas
-        """
-        print(f"❌ Rechazando horas extras para jornada: {jornada_id}")
-        
-        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
-        if not jornada:
-            raise HTTPException(status_code=404, detail="Jornada no encontrada")
-        
-        # ✅ Finalizar la jornada normalmente
+        """✅ Rechaza horas extras y finaliza en 9h"""
         return JornadaLaboralService.finalizar_jornada(
             db=db,
             jornada_id=jornada_id,
             tiempo_descanso=tiempo_descanso,
-            notas_fin=f"{notas_fin or ''} - Finalizado al completar 9 horas regulares".strip(),
+            notas_fin=f"{notas_fin or ''} - Finalizado en 9h regulares".strip(),
             forzado=False
         )
     
@@ -243,7 +219,7 @@ def confirmar_horas_extras(
     @staticmethod
     def obtener_jornada_activa(db: Session, usuario_id: int) -> Optional[JornadaLaboral]:
         """
-        ✅ CORREGIDO: Obtiene la jornada activa verificando inconsistencias
+        ✅ MEJORADO: Obtiene jornada activa y verifica límites automáticamente
         """
         jornada = db.query(JornadaLaboral).filter(
             and_(
@@ -253,51 +229,30 @@ def confirmar_horas_extras(
             )
         ).order_by(desc(JornadaLaboral.created)).first()
         
-        if jornada:
-            # ✅ NUEVA VALIDACIÓN: Verificar que no sea demasiado vieja
-            hace_24h = datetime.now() - timedelta(hours=24)
-            if jornada.created < hace_24h:
-                print(f"⚠️ Jornada demasiado antigua ({jornada.id}), finalizando automáticamente")
-                
-                # Finalizar automáticamente
-                JornadaLaboralService._calcular_horas_trabajadas(jornada)
-                jornada.hora_fin = datetime.now()
-                jornada.estado = 'completada'
-                jornada.motivo_finalizacion = "Finalización automática - jornada antigua"
-                jornada.finalizacion_forzosa = True
-                
-                db.commit()
-                db.refresh(jornada)
-                
-                # Retornar None porque ya está finalizada
-                return None
-            
-            # ✅ Actualizar horas en tiempo real si está activa
-            if jornada.estado == 'activa':
-                JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
-                
-                # ✅ Verificar si debe auto-finalizarse por límite de 13 horas
-                if jornada.total_horas >= 13.0:
-                    print(f"🚨 Jornada {jornada.id} alcanzó 13 horas, finalizando automáticamente")
-                    jornada.hora_fin = datetime.now()
-                    jornada.estado = 'completada'
-                    jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
-                    jornada.finalizacion_forzosa = True
-                    db.commit()
-                    db.refresh(jornada)
-                    return None
-            
-            print(f"✅ Jornada activa encontrada: ID {jornada.id}, estado: {jornada.estado}")
-            return jornada
+        if not jornada:
+            return None
         
-        print(f"ℹ️ No hay jornada activa para usuario {usuario_id}")
-        return None
+        # Limpiar jornadas muy antiguas (>24h)
+        hace_24h = datetime.now() - timedelta(hours=24)
+        if jornada.created < hace_24h:
+            print(f"⚠️ Jornada antigua ({jornada.id}), finalizando automáticamente")
+            JornadaLaboralService._calcular_horas_trabajadas(jornada)
+            jornada.hora_fin = datetime.now()
+            jornada.estado = 'completada'
+            jornada.motivo_finalizacion = "Auto-finalizada (>24h)"
+            jornada.finalizacion_forzosa = True
+            db.commit()
+            return None
+        
+        # ✅ CRÍTICO: Verificar límites automáticos
+        if jornada.estado == 'activa':
+            JornadaLaboralService.verificar_limites_automaticos(db, jornada)
+        
+        return jornada
     
     @staticmethod
     def obtener_jornada_por_id(db: Session, jornada_id: int) -> Optional[JornadaLaboral]:
-        """
-        ✅ Obtiene una jornada por su ID
-        """
+        """✅ Obtiene jornada por ID"""
         jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
         
         if jornada and jornada.estado == 'activa':
@@ -312,15 +267,18 @@ def confirmar_horas_extras(
         limite: int = 10,
         offset: int = 0
     ) -> List[JornadaLaboral]:
+        """✅ Obtiene jornadas de un usuario"""
         try:
             jornadas = db.query(JornadaLaboral).filter(
                 JornadaLaboral.usuario_id == usuario_id
-            ).order_by(desc(JornadaLaboral.fecha), desc(JornadaLaboral.created)).offset(offset).limit(limite).all()
-        
-            print(f"📋 Encontradas {len(jornadas)} jornadas para usuario {usuario_id}")
+            ).order_by(
+                desc(JornadaLaboral.fecha), 
+                desc(JornadaLaboral.created)
+            ).offset(offset).limit(limite).all()
+            
             return jornadas
         except Exception as e:
-            print(f"❌ Error en obtener_jornadas_usuario: {str(e)}")
+            print(f"❌ Error: {str(e)}")
             raise
     
     @staticmethod
@@ -331,24 +289,17 @@ def confirmar_horas_extras(
         fecha_fin: Optional[date] = None,
         limite: int = 50
     ) -> List[JornadaLaboral]:
-        """
-        ✅ Obtiene jornadas por periodo
-        """
+        """✅ Obtiene jornadas por periodo"""
         query = db.query(JornadaLaboral)
         
         if usuario_id:
             query = query.filter(JornadaLaboral.usuario_id == usuario_id)
-        
         if fecha_inicio:
             query = query.filter(JornadaLaboral.fecha >= fecha_inicio)
-        
         if fecha_fin:
             query = query.filter(JornadaLaboral.fecha <= fecha_fin)
         
-        jornadas = query.order_by(desc(JornadaLaboral.fecha)).limit(limite).all()
-        
-        print(f"📅 Encontradas {len(jornadas)} jornadas en el periodo")
-        return jornadas
+        return query.order_by(desc(JornadaLaboral.fecha)).limit(limite).all()
     
     @staticmethod
     def obtener_estadisticas_mes(
@@ -357,11 +308,7 @@ def confirmar_horas_extras(
         mes: int,
         año: int
     ) -> Dict[str, Any]:
-        """
-        ✅ Obtiene estadísticas del mes para un usuario
-        """
-        print(f"📊 Calculando estadísticas para usuario {usuario_id}, {mes}/{año}")
-        
+        """✅ Estadísticas del mes"""
         jornadas = db.query(JornadaLaboral).filter(
             and_(
                 JornadaLaboral.usuario_id == usuario_id,
@@ -378,7 +325,7 @@ def confirmar_horas_extras(
         jornadas_con_extras = len([j for j in jornadas if j.horas_extras > 0])
         promedio_horas_dia = total_horas / total_jornadas if total_jornadas > 0 else 0
         
-        estadisticas = {
+        return {
             'mes': mes,
             'año': año,
             'total_jornadas': total_jornadas,
@@ -400,57 +347,65 @@ def confirmar_horas_extras(
                 for j in jornadas
             ]
         }
-        
-        print(f"✅ Estadísticas calculadas: {total_jornadas} jornadas, {total_horas} horas totales")
-        return estadisticas
     
-    # ============ MÉTODOS DE VALIDACIÓN Y CONTROL ============
+    # ============ MÉTODOS DE VALIDACIÓN AUTOMÁTICA ============
     
     @staticmethod
-    def actualizar_estado_jornada(db: Session, jornada_id: int) -> JornadaLaboral:
+    def verificar_limites_automaticos(db: Session, jornada: JornadaLaboral) -> None:
         """
-        ✅ Actualiza el estado de una jornada basado en el tiempo transcurrido
+        ✅ NUEVO CRÍTICO: Verifica límites y pausa/finaliza automáticamente
+        - A las 9h: pausa si no confirmó overtime
+        - A las 13h: finaliza automáticamente
         """
-        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
-        if not jornada or jornada.estado != 'activa':
-            return jornada
-        
-        # ✅ Calcular horas actuales
+        # Calcular horas actuales
         JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
         
-        # ✅ Verificar si debe pausarse automáticamente (9 horas)
+        cambio_realizado = False
+        
+        # LÍMITE 1: 9 horas regulares (pausa automática)
         if (jornada.horas_regulares >= 9.0 and 
             not jornada.limite_regular_alcanzado and 
             not jornada.overtime_confirmado):
             
-            print(f"⏰ Pausando automáticamente jornada {jornada_id} por límite de 9h")
+            print(f"⏰ AUTO-PAUSA: Jornada {jornada.id} alcanzó 9h")
             jornada.estado = 'pausada'
             jornada.limite_regular_alcanzado = True
             jornada.pausa_automatica = True
             jornada.hora_limite_regular = datetime.now()
+            cambio_realizado = True
         
-        # ✅ Verificar si debe finalizarse automáticamente (13 horas)
-        elif jornada.total_horas >= 13.0:
-            print(f"🚨 Finalizando automáticamente jornada {jornada_id} por límite de 13h")
+        # LÍMITE 2: 13 horas totales (finalización automática)
+        if jornada.total_horas >= 13.0:
+            print(f"🛑 AUTO-FINALIZACIÓN: Jornada {jornada.id} alcanzó 13h")
             jornada.hora_fin = datetime.now()
             jornada.estado = 'completada'
             jornada.finalizacion_forzosa = True
             jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+            JornadaLaboralService._calcular_horas_trabajadas(jornada)
+            cambio_realizado = True
         
-        try:
-            db.commit()
-            db.refresh(jornada)
+        if cambio_realizado:
+            try:
+                db.commit()
+                db.refresh(jornada)
+                print(f"✅ Estado actualizado automáticamente")
+            except Exception as e:
+                print(f"❌ Error actualizando estado: {str(e)}")
+                db.rollback()
+    
+    @staticmethod
+    def actualizar_estado_jornada(db: Session, jornada_id: int) -> JornadaLaboral:
+        """✅ Actualiza estado basado en tiempo transcurrido"""
+        jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
+        if not jornada or jornada.estado not in ['activa', 'pausada']:
             return jornada
-        except Exception as e:
-            print(f"❌ Error actualizando estado: {str(e)}")
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error actualizando estado: {str(e)}")
+        
+        JornadaLaboralService.verificar_limites_automaticos(db, jornada)
+        return jornada
     
     @staticmethod
     def verificar_y_actualizar_jornadas_activas(db: Session) -> List[JornadaLaboral]:
-        """
-        ✅ Verifica y actualiza todas las jornadas activas (para ejecución periódica)
-        """
+        """✅ Verifica TODAS las jornadas activas (para CRON job)"""
         jornadas_activas = db.query(JornadaLaboral).filter(
             JornadaLaboral.estado.in_(['activa', 'pausada']),
             JornadaLaboral.hora_fin.is_(None)
@@ -459,8 +414,8 @@ def confirmar_horas_extras(
         jornadas_actualizadas = []
         for jornada in jornadas_activas:
             try:
-                jornada_actualizada = JornadaLaboralService.actualizar_estado_jornada(db, jornada.id)
-                jornadas_actualizadas.append(jornada_actualizada)
+                JornadaLaboralService.verificar_limites_automaticos(db, jornada)
+                jornadas_actualizadas.append(jornada)
             except Exception as e:
                 print(f"❌ Error actualizando jornada {jornada.id}: {str(e)}")
         
@@ -471,28 +426,20 @@ def confirmar_horas_extras(
     
     @staticmethod
     def _es_feriado(fecha: date) -> bool:
-        """
-        ✅ Determina si una fecha es feriado
-        """
-        # Por ahora, solo domingos
+        """✅ Determina si es feriado (domingos)"""
         return fecha.weekday() == 6
     
     @staticmethod
     def _calcular_horas_trabajadas(jornada: JornadaLaboral) -> None:
-        """
-        ✅ CRÍTICO: Calcula las horas trabajadas de una jornada finalizada
-        """
+        """✅ Calcula horas trabajadas (jornada finalizada)"""
         if not jornada.hora_inicio or not jornada.hora_fin:
-            print("⚠️ No se pueden calcular horas: faltan hora_inicio o hora_fin")
             return
         
-        # ✅ Calcular tiempo total trabajado (descontando descansos)
         tiempo_total_ms = (jornada.hora_fin - jornada.hora_inicio).total_seconds() * 1000
-        tiempo_descanso_ms = jornada.tiempo_descanso * 60 * 1000  # minutos a ms
+        tiempo_descanso_ms = jornada.tiempo_descanso * 60 * 1000
         tiempo_trabajado_ms = tiempo_total_ms - tiempo_descanso_ms
-        tiempo_trabajado_horas = max(0, tiempo_trabajado_ms / (1000 * 60 * 60))  # ms a horas
+        tiempo_trabajado_horas = max(0, tiempo_trabajado_ms / (1000 * 60 * 60))
         
-        # ✅ Separar horas regulares y extras
         if tiempo_trabajado_horas <= 9.0:
             jornada.horas_regulares = tiempo_trabajado_horas
             jornada.horas_extras = 0.0
@@ -501,26 +448,23 @@ def confirmar_horas_extras(
             jornada.horas_extras = min(4.0, tiempo_trabajado_horas - 9.0)
         
         jornada.total_horas = jornada.horas_regulares + jornada.horas_extras
-        
-        print(f"⏱️ Horas calculadas: {jornada.total_horas}h total ({jornada.horas_regulares}h regulares + {jornada.horas_extras}h extras)")
     
     @staticmethod
     def _calcular_horas_en_tiempo_real(jornada: JornadaLaboral) -> None:
         """
-        ✅ NUEVO: Calcula las horas trabajadas en tiempo real para jornadas activas
+        ✅ MEJORADO: Calcula horas en tiempo real
+        - Actualiza horas_regulares y horas_extras
+        - Marca limite_regular_alcanzado si llega a 9h
         """
         if not jornada.hora_inicio:
             return
         
         now = datetime.now()
-        
-        # ✅ Calcular tiempo trabajado hasta ahora (descontando descansos)
         tiempo_total_ms = (now - jornada.hora_inicio).total_seconds() * 1000
         tiempo_descanso_ms = jornada.tiempo_descanso * 60 * 1000
         tiempo_trabajado_ms = tiempo_total_ms - tiempo_descanso_ms
         tiempo_trabajado_horas = max(0, tiempo_trabajado_ms / (1000 * 60 * 60))
         
-        # ✅ Separar horas regulares y extras
         if tiempo_trabajado_horas <= 9.0:
             jornada.horas_regulares = tiempo_trabajado_horas
             jornada.horas_extras = 0.0
@@ -530,7 +474,7 @@ def confirmar_horas_extras(
         
         jornada.total_horas = jornada.horas_regulares + jornada.horas_extras
         
-        # ✅ Actualizar estado de límite regular
+        # Marcar límite si llegó a 9h
         if jornada.horas_regulares >= 9.0 and not jornada.limite_regular_alcanzado:
             jornada.limite_regular_alcanzado = True
             jornada.hora_limite_regular = jornada.hora_inicio + timedelta(
@@ -540,9 +484,7 @@ def confirmar_horas_extras(
     
     @staticmethod
     def calcular_tiempo_restante(jornada: JornadaLaboral) -> Dict[str, Any]:
-        """
-        ✅ Calcula el tiempo restante para diferentes límites
-        """
+        """✅ Calcula tiempo restante"""
         if jornada.estado != 'activa':
             return {
                 'tiempo_hasta_advertencia': 0,
@@ -552,16 +494,12 @@ def confirmar_horas_extras(
                 'horas_trabajadas': jornada.total_horas or 0
             }
         
-        # ✅ Actualizar horas en tiempo real
         JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
         
-        # ✅ Calcular tiempo trabajado en minutos
         tiempo_trabajado_min = jornada.total_horas * 60
-        
-        # ✅ Calcular tiempos restantes
-        tiempo_hasta_advertencia = max(0, (8 * 60) - tiempo_trabajado_min)  # 8 horas
-        tiempo_hasta_limite_regular = max(0, (9 * 60) - tiempo_trabajado_min)  # 9 horas
-        tiempo_hasta_limite_maximo = max(0, (13 * 60) - tiempo_trabajado_min)  # 13 horas
+        tiempo_hasta_advertencia = max(0, (8 * 60) - tiempo_trabajado_min)
+        tiempo_hasta_limite_regular = max(0, (9 * 60) - tiempo_trabajado_min)
+        tiempo_hasta_limite_maximo = max(0, (13 * 60) - tiempo_trabajado_min)
         
         return {
             'tiempo_hasta_advertencia': int(tiempo_hasta_advertencia),
@@ -570,6 +508,8 @@ def confirmar_horas_extras(
             'en_overtime': jornada.overtime_confirmado or False,
             'horas_trabajadas': round(jornada.total_horas, 2)
         }
+    
+    # ============ MÉTODOS ADICIONALES ============
     
     @staticmethod
     def actualizar_jornada_completa(
@@ -584,95 +524,44 @@ def confirmar_horas_extras(
         notas_fin: Optional[str] = None,
         estado: Optional[str] = None
     ) -> JornadaLaboral:
-        """
-        ✅ NUEVO: Actualiza una jornada laboral completa
-        Permite editar todos los campos principales de una jornada
-        """
-        print(f"✏️ Actualizando jornada ID: {jornada_id}")
-        
-        # Obtener la jornada existente
+        """✅ Actualiza jornada completa"""
         jornada = db.query(JornadaLaboral).filter(JornadaLaboral.id == jornada_id).first()
         if not jornada:
-            print(f"❌ Jornada no encontrada: {jornada_id}")
             raise HTTPException(status_code=404, detail="Jornada no encontrada")
         
-        # Actualizar campos si se proporcionan
-        if fecha is not None:
-            try:
-                from datetime import date as date_type
-                jornada.fecha = date_type.fromisoformat(fecha)
-                print(f"📅 Fecha actualizada: {jornada.fecha}")
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Formato de fecha inválido: {str(e)}")
-        
-        if hora_inicio is not None:
-            try:
-                jornada.hora_inicio = datetime.fromisoformat(hora_inicio)
-                print(f"⏰ Hora inicio actualizada: {jornada.hora_inicio}")
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Formato de hora_inicio inválido: {str(e)}")
-        
-        if hora_fin is not None:
-            try:
-                if hora_fin:  # Si no es None ni string vacío
-                    jornada.hora_fin = datetime.fromisoformat(hora_fin)
-                    print(f"🛑 Hora fin actualizada: {jornada.hora_fin}")
-                else:
-                    jornada.hora_fin = None
-                    print(f"🛑 Hora fin establecida a None")
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Formato de hora_fin inválido: {str(e)}")
-        
+        if fecha:
+            jornada.fecha = date.fromisoformat(fecha)
+        if hora_inicio:
+            jornada.hora_inicio = datetime.fromisoformat(hora_inicio)
+        if hora_fin:
+            jornada.hora_fin = datetime.fromisoformat(hora_fin) if hora_fin else None
         if tiempo_descanso is not None:
-            if tiempo_descanso < 0:
-                raise HTTPException(status_code=400, detail="El tiempo de descanso no puede ser negativo")
             jornada.tiempo_descanso = tiempo_descanso
-            print(f"☕ Tiempo descanso actualizado: {tiempo_descanso} minutos")
-        
         if es_feriado is not None:
             jornada.es_feriado = es_feriado
-            print(f"🌟 Es feriado actualizado: {es_feriado}")
-        
         if notas_inicio is not None:
             jornada.notas_inicio = notas_inicio
-            print(f"📝 Notas inicio actualizadas")
-        
         if notas_fin is not None:
             jornada.notas_fin = notas_fin
-            print(f"📝 Notas fin actualizadas")
-        
         if estado is not None:
-            estados_validos = ['activa', 'pausada', 'completada', 'cancelada']
-            if estado.lower() not in estados_validos:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Estado inválido. Debe ser uno de: {', '.join(estados_validos)}"
-                )
+            if estado.lower() not in ['activa', 'pausada', 'completada', 'cancelada']:
+                raise HTTPException(status_code=400, detail="Estado inválido")
             jornada.estado = estado.lower()
-            print(f"🔄 Estado actualizado: {jornada.estado}")
         
-        # ✅ CRÍTICO: Recalcular horas si la jornada está completada o se modificaron horas
         if jornada.hora_fin or jornada.estado == 'completada':
             JornadaLaboralService._calcular_horas_trabajadas(jornada)
-            print(f"⏱️ Horas recalculadas: {jornada.total_horas}h total")
         
         try:
             db.commit()
             db.refresh(jornada)
-            
-            print(f"✅ Jornada {jornada_id} actualizada correctamente")
             return jornada
-            
         except Exception as e:
-            print(f"❌ Error guardando cambios: {str(e)}")
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error al guardar cambios: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
     
     @staticmethod
     def obtener_resumen_dia(db: Session, usuario_id: int, fecha: date) -> Dict[str, Any]:
-        """
-        ✅ Obtiene resumen de jornadas para un día específico
-        """
+        """✅ Resumen del día"""
         jornadas = db.query(JornadaLaboral).filter(
             and_(
                 JornadaLaboral.usuario_id == usuario_id,
@@ -685,29 +574,24 @@ def confirmar_horas_extras(
                 'fecha': fecha.isoformat(),
                 'tiene_jornadas': False,
                 'total_horas': 0,
-                'horas_regulares': 0,
-                'horas_extras': 0,
-                'estado': 'sin_actividad',
-                'es_feriado': False,
-                'en_overtime': False
+                'estado': 'sin_actividad'
             }
         
-        jornada_principal = jornadas[0]  # Asumir una jornada por día
+        jornada = jornadas[0]
         
-        # ✅ Si está activa, actualizar horas en tiempo real
-        if jornada_principal.estado == 'activa':
-            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada_principal)
+        if jornada.estado == 'activa':
+            JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
         
         return {
             'fecha': fecha.isoformat(),
             'tiene_jornadas': True,
-            'jornada_id': jornada_principal.id,
-            'estado': jornada_principal.estado,
-            'hora_inicio': jornada_principal.hora_inicio.strftime('%H:%M') if jornada_principal.hora_inicio else None,
-            'hora_fin': jornada_principal.hora_fin.strftime('%H:%M') if jornada_principal.hora_fin else None,
-            'total_horas': jornada_principal.total_horas,
-            'horas_regulares': jornada_principal.horas_regulares,
-            'horas_extras': jornada_principal.horas_extras,
-            'es_feriado': jornada_principal.es_feriado,
-            'en_overtime': jornada_principal.overtime_confirmado or False
+            'jornada_id': jornada.id,
+            'estado': jornada.estado,
+            'hora_inicio': jornada.hora_inicio.strftime('%H:%M') if jornada.hora_inicio else None,
+            'hora_fin': jornada.hora_fin.strftime('%H:%M') if jornada.hora_fin else None,
+            'total_horas': jornada.total_horas,
+            'horas_regulares': jornada.horas_regulares,
+            'horas_extras': jornada.horas_extras,
+            'es_feriado': jornada.es_feriado,
+            'en_overtime': jornada.overtime_confirmado or False
         }
