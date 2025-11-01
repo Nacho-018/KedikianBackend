@@ -353,34 +353,41 @@ class JornadaLaboralService:
     @staticmethod
     def verificar_limites_automaticos(db: Session, jornada: JornadaLaboral) -> None:
         """
-        ✅ NUEVO CRÍTICO: Verifica límites y pausa/finaliza automáticamente
-        - A las 9h: pausa si no confirmó overtime
-        - A las 13h: finaliza automáticamente
+        ✅ CORREGIDO: Verifica límites basándose en horas REALES trabajadas
+        - A las 9h REALES: pausa automática
+        - A las 13h REALES: finalización automática
         """
-        # Calcular horas actuales
+        # Calcular horas actuales (ya descuentan descanso)
         JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
         
         cambio_realizado = False
         
-        # LÍMITE 1: 9 horas regulares (pausa automática)
+        # LÍMITE 1: 9 horas REALES trabajadas (pausa automática)
         if (jornada.horas_regulares >= 9.0 and 
             not jornada.limite_regular_alcanzado and 
             not jornada.overtime_confirmado):
             
-            print(f"⏰ AUTO-PAUSA: Jornada {jornada.id} alcanzó 9h")
+            print(f"⏰ AUTO-PAUSA: Jornada {jornada.id} alcanzó 9h REALES trabajadas")
+            print(f"   (Tiempo total: {jornada.total_horas:.2f}h incluye {jornada.tiempo_descanso}min descanso)")
+            
             jornada.estado = 'pausada'
             jornada.limite_regular_alcanzado = True
             jornada.pausa_automatica = True
             jornada.hora_limite_regular = datetime.now()
             cambio_realizado = True
         
-        # LÍMITE 2: 13 horas totales (finalización automática)
+        # LÍMITE 2: 13 horas REALES trabajadas (finalización automática)
         if jornada.total_horas >= 13.0:
-            print(f"🛑 AUTO-FINALIZACIÓN: Jornada {jornada.id} alcanzó 13h")
+            print(f"🛑 AUTO-FINALIZACIÓN: Jornada {jornada.id} alcanzó 13h REALES trabajadas")
+            print(f"   Horas regulares: {jornada.horas_regulares:.2f}h")
+            print(f"   Horas extras: {jornada.horas_extras:.2f}h")
+            
             jornada.hora_fin = datetime.now()
             jornada.estado = 'completada'
             jornada.finalizacion_forzosa = True
-            jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+            jornada.motivo_finalizacion = "Límite máximo de 13 horas REALES trabajadas alcanzado"
+            
+            # Calcular horas finales
             JornadaLaboralService._calcular_horas_trabajadas(jornada)
             cambio_realizado = True
         
@@ -431,40 +438,66 @@ class JornadaLaboralService:
     
     @staticmethod
     def _calcular_horas_trabajadas(jornada: JornadaLaboral) -> None:
-        """✅ Calcula horas trabajadas (jornada finalizada)"""
+        """
+        ✅ CORREGIDO: Calcula horas trabajadas descontando tiempo de descanso
+        Las horas_regulares ahora muestran el tiempo REAL trabajado
+        """
         if not jornada.hora_inicio or not jornada.hora_fin:
             return
         
+        # Tiempo total transcurrido en milisegundos
         tiempo_total_ms = (jornada.hora_fin - jornada.hora_inicio).total_seconds() * 1000
+        
+        # Tiempo de descanso en milisegundos
         tiempo_descanso_ms = jornada.tiempo_descanso * 60 * 1000
+        
+        # ✅ CRÍTICO: Tiempo trabajado = Total - Descanso
         tiempo_trabajado_ms = tiempo_total_ms - tiempo_descanso_ms
         tiempo_trabajado_horas = max(0, tiempo_trabajado_ms / (1000 * 60 * 60))
         
+        print(f"📊 Cálculo de horas:")
+        print(f"   Tiempo total: {tiempo_total_ms / (1000 * 60 * 60):.2f}h")
+        print(f"   Descanso: {tiempo_descanso_ms / (1000 * 60 * 60):.2f}h")
+        print(f"   Tiempo trabajado real: {tiempo_trabajado_horas:.2f}h")
+        
+        # ✅ NUEVO: Distribuir horas considerando el descanso ya restado
         if tiempo_trabajado_horas <= 9.0:
+            # Si trabajó 9h o menos (ya sin descanso), todo es regular
             jornada.horas_regulares = tiempo_trabajado_horas
             jornada.horas_extras = 0.0
         else:
+            # Si trabajó más de 9h (sin descanso), el exceso son extras (máx 4h)
             jornada.horas_regulares = 9.0
             jornada.horas_extras = min(4.0, tiempo_trabajado_horas - 9.0)
         
         jornada.total_horas = jornada.horas_regulares + jornada.horas_extras
-    
+        
+        print(f"✅ Resultado final:")
+        print(f"   Horas regulares: {jornada.horas_regulares:.2f}h")
+        print(f"   Horas extras: {jornada.horas_extras:.2f}h")
+        print(f"   Total: {jornada.total_horas:.2f}h")
+
     @staticmethod
     def _calcular_horas_en_tiempo_real(jornada: JornadaLaboral) -> None:
         """
-        ✅ MEJORADO: Calcula horas en tiempo real
-        - Actualiza horas_regulares y horas_extras
-        - Marca limite_regular_alcanzado si llega a 9h
+        ✅ CORREGIDO: Calcula horas en tiempo real descontando descanso
+        - Las horas_regulares muestran tiempo REAL trabajado
+        - Marca limite_regular_alcanzado cuando llega a 9h REALES
         """
         if not jornada.hora_inicio:
             return
         
         now = datetime.now()
+        
+        # Tiempo total transcurrido
         tiempo_total_ms = (now - jornada.hora_inicio).total_seconds() * 1000
+        
+        # ✅ CRÍTICO: Restar tiempo de descanso
         tiempo_descanso_ms = jornada.tiempo_descanso * 60 * 1000
         tiempo_trabajado_ms = tiempo_total_ms - tiempo_descanso_ms
         tiempo_trabajado_horas = max(0, tiempo_trabajado_ms / (1000 * 60 * 60))
         
+        # Distribuir entre regulares y extras
         if tiempo_trabajado_horas <= 9.0:
             jornada.horas_regulares = tiempo_trabajado_horas
             jornada.horas_extras = 0.0
@@ -474,29 +507,39 @@ class JornadaLaboralService:
         
         jornada.total_horas = jornada.horas_regulares + jornada.horas_extras
         
-        # Marcar límite si llegó a 9h
+        # ✅ Marcar límite cuando llegue a 9h REALES trabajadas
         if jornada.horas_regulares >= 9.0 and not jornada.limite_regular_alcanzado:
             jornada.limite_regular_alcanzado = True
+            # Calcular cuándo alcanzó las 9h (hora_inicio + 9h + descanso)
             jornada.hora_limite_regular = jornada.hora_inicio + timedelta(
-                hours=9, 
+                hours=9,
                 minutes=jornada.tiempo_descanso
             )
     
     @staticmethod
     def calcular_tiempo_restante(jornada: JornadaLaboral) -> Dict[str, Any]:
-        """✅ Calcula tiempo restante"""
+        """
+        ✅ CORREGIDO: Calcula tiempo restante considerando descanso
+        Muestra cuánto falta para 8h, 9h y 13h REALES trabajadas
+        """
         if jornada.estado != 'activa':
             return {
                 'tiempo_hasta_advertencia': 0,
                 'tiempo_hasta_limite_regular': 0,
                 'tiempo_hasta_limite_maximo': 0,
                 'en_overtime': False,
-                'horas_trabajadas': jornada.total_horas or 0
+                'horas_trabajadas': jornada.total_horas or 0,
+                'horas_regulares': jornada.horas_regulares or 0,
+                'tiempo_descanso_minutos': jornada.tiempo_descanso or 0
             }
         
+        # Actualizar horas en tiempo real
         JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
         
+        # ✅ CRÍTICO: Calcular en base a horas REALES trabajadas
         tiempo_trabajado_min = jornada.total_horas * 60
+        
+        # Tiempo restante para cada límite
         tiempo_hasta_advertencia = max(0, (8 * 60) - tiempo_trabajado_min)
         tiempo_hasta_limite_regular = max(0, (9 * 60) - tiempo_trabajado_min)
         tiempo_hasta_limite_maximo = max(0, (13 * 60) - tiempo_trabajado_min)
@@ -506,7 +549,11 @@ class JornadaLaboralService:
             'tiempo_hasta_limite_regular': int(tiempo_hasta_limite_regular),
             'tiempo_hasta_limite_maximo': int(tiempo_hasta_limite_maximo),
             'en_overtime': jornada.overtime_confirmado or False,
-            'horas_trabajadas': round(jornada.total_horas, 2)
+            'horas_trabajadas': round(jornada.total_horas, 2),
+            'horas_regulares': round(jornada.horas_regulares, 2),
+            'horas_extras': round(jornada.horas_extras or 0, 2),
+            'tiempo_descanso_minutos': jornada.tiempo_descanso or 0,
+            'descripcion': f"{int(jornada.horas_regulares)}h {int((jornada.horas_regulares % 1) * 60)}min trabajadas (descanso: {jornada.tiempo_descanso}min)"
         }
     
     # ============ MÉTODOS ADICIONALES ============
