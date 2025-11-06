@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional
+from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.db.dependencies import get_db
+from app.db.models import Gasto
 from app.schemas.schemas import GastoSchema
 from app.services.gasto_service import (
     get_gastos as service_get_gastos,
@@ -66,10 +68,29 @@ def convert_form_data(
 # ENDPOINTS
 # ================================
 
-# GET todos los gastos
+# GET todos los gastos CON FILTRO DE FECHAS (igual que pagos)
 @router.get("/", response_model=List[GastoSchema])
-def get_gastos(session: Session = Depends(get_db)):
-    return service_get_gastos(session)
+def get_gastos(
+    fechaInicio: Optional[datetime] = Query(None),
+    fechaFin: Optional[datetime] = Query(None),
+    session: Session = Depends(get_db)
+):
+    """
+    Obtener gastos con filtro opcional de fechas.
+    Funciona exactamente igual que el endpoint de pagos.
+    """
+    try:
+        query = session.query(Gasto)
+        if fechaInicio:
+            query = query.filter(Gasto.fecha >= fechaInicio)
+        if fechaFin:
+            query = query.filter(Gasto.fecha <= fechaFin)
+        gastos = query.order_by(Gasto.fecha.desc()).all()
+        return [GastoSchema.from_orm(g) for g in gastos]
+    except Exception as e:
+        print(f"❌ Error al obtener gastos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener gastos: {str(e)}")
+
 
 # GET gasto por id
 @router.get("/{id}", response_model=GastoSchema)
@@ -78,6 +99,7 @@ def get_gasto(id: int, session: Session = Depends(get_db)):
     if gasto:
         return gasto
     raise HTTPException(status_code=404, detail="Gasto no encontrado")
+
 
 # CREATE gasto desde JSON (Angular / frontend)
 @router.post("/json", response_model=GastoSchema, status_code=201)
@@ -116,14 +138,15 @@ async def create_gasto_json(
         print(f"❌ Error creando gasto: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al crear gasto: {str(e)}")
 
+
 # CREATE gasto desde FormData (con imagen)
 @router.post("/", response_model=GastoSchema, status_code=201)
 async def create_gasto_form(
-    usuario_id: int = Form(...),  # ← Cambiar de str a int
+    usuario_id: int = Form(...),
     tipo: str = Form(...),
-    importe_total: float = Form(...),  # ← Cambiar de str a float
+    importe_total: float = Form(...),
     fecha: str = Form(...),
-    maquina_id: Optional[int] = Form(None),  # ← Cambiar de str a int
+    maquina_id: Optional[int] = Form(None),
     descripcion: str = Form(""),
     imagen: Optional[UploadFile] = File(None),
     session: Session = Depends(get_db)
@@ -131,10 +154,10 @@ async def create_gasto_form(
     try:
         return service_create_gasto(
             session,
-            usuario_id,  # Ya es int
-            maquina_id,  # Ya es int o None
+            usuario_id,
+            maquina_id,
             tipo,
-            importe_total,  # Ya es float
+            importe_total,
             fecha,
             descripcion,
             imagen
@@ -142,15 +165,16 @@ async def create_gasto_form(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al crear gasto FormData: {str(e)}")
 
+
 # UPDATE gasto
 @router.put("/{id}", response_model=GastoSchema)
 async def update_gasto(
     id: int,
-    usuario_id: int = Form(...),  # ← Cambiar de str a int
+    usuario_id: int = Form(...),
     tipo: str = Form(...),
-    importe_total: float = Form(...),  # ← Cambiar de str a float
+    importe_total: float = Form(...),
     fecha: str = Form(...),
-    maquina_id: Optional[int] = Form(None),  # ← Cambiar de str a int
+    maquina_id: Optional[int] = Form(None),
     descripcion: str = Form(""),
     imagen: Optional[UploadFile] = File(None),
     session: Session = Depends(get_db)
@@ -159,16 +183,17 @@ async def update_gasto(
         return service_update_gasto(
             session,
             id,
-            usuario_id,  # Ya es int
-            maquina_id,  # Ya es int o None
+            usuario_id,
+            maquina_id,
             tipo,
-            importe_total,  # Ya es float
+            importe_total,
             fecha,
             descripcion,
             imagen
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al actualizar gasto: {str(e)}")
+
 
 # DELETE gasto
 @router.delete("/{id}")
@@ -181,13 +206,15 @@ def delete_gasto(id: int, session: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar gasto: {str(e)}")
 
+
 # TOTAL combustible mes actual
-@router.get("/combustible-mes-actual")
+@router.get("/estadisticas/combustible-mes-actual")
 def total_combustible_mes_actual(session: Session = Depends(get_db)):
     total = get_total_combustible_mes_actual(session)
     return {"total_combustible_mes_actual": total}
 
+
 # GASTOS paginados
-@router.get("/paginado")
+@router.get("/paginado/lista")
 def gastos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
     return get_all_gastos_paginated(session, skip=skip, limit=limit)

@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List
+from typing import List, Optional
 from app.db.dependencies import get_db
 from datetime import datetime
 from app.db.models import Pago
-from app.schemas.schemas import PagoSchema, PagoCreate
+from app.schemas.schemas import PagoSchema, PagoCreate, PagoOut
 from sqlalchemy.orm import Session
 from app.services.pago_service import (
     get_pagos as service_get_pagos,
