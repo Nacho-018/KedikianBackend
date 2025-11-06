@@ -1,7 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, date
 from typing import List, Optional, Union, Dict, Any
-
+import base64
 # Mantenimiento
 class MantenimientoBase(BaseModel):
     maquina_id: int
@@ -125,19 +125,42 @@ class GastoBase(BaseModel):
     importe_total: float
     fecha: datetime
     descripcion: str
-    imagen: Optional[str] = None
 
 class GastoCreate(GastoBase):
-    pass
+    imagen: Optional[bytes] = None
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 class GastoSchema(GastoBase):
     id: Optional[int] = None
+    imagen: Optional[str] = None  # Base64 string para respuestas
+    
+    @field_validator('imagen', mode='before')
+    @classmethod
+    def convert_bytes_to_base64(cls, v):
+        """Convierte bytes a base64 string para la respuesta"""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            return base64.b64encode(v).decode('utf-8')
+        return v
 
     class Config:
         from_attributes = True
 
 class GastoOut(GastoBase):
     id: Optional[int] = None
+    imagen: Optional[str] = None
+    
+    @field_validator('imagen', mode='before')
+    @classmethod
+    def convert_bytes_to_base64(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            return base64.b64encode(v).decode('utf-8')
+        return v
 
     class Config:
         from_attributes = True
