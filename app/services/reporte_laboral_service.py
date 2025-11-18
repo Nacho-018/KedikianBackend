@@ -1,4 +1,4 @@
-from app.db.models import ReporteLaboral, Maquina
+from app.db.models import ReporteLaboral, Maquina, HorometroHistorial
 from app.schemas.schemas import ReporteLaboralSchema, ReporteLaboralCreate, ReporteLaboralOut
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func, and_
@@ -87,10 +87,51 @@ def get_reporte_laboral(db: Session, reporte_id: int) -> Optional[ReporteLaboral
 
 
 def create_reporte_laboral(db: Session, reporte: ReporteLaboralCreate) -> ReporteLaboralOut:
+    # Crear el nuevo reporte
     nuevo_reporte = ReporteLaboral(**reporte.model_dump())
     db.add(nuevo_reporte)
+    db.flush()  # Obtener el ID del reporte antes de commit
+
+    print(f"🔍 DEBUG - Reporte creado:")
+    print(f"   - maquina_id: {nuevo_reporte.maquina_id}")
+    print(f"   - horometro_inicial del reporte: {nuevo_reporte.horometro_inicial}")
+
+    # Si el reporte tiene un horometro_inicial, actualizar el de la máquina
+    if nuevo_reporte.horometro_inicial is not None and nuevo_reporte.maquina_id:
+        maquina = db.query(Maquina).filter(Maquina.id == nuevo_reporte.maquina_id).first()
+
+        if maquina:
+            valor_anterior = maquina.horometro_inicial
+            valor_nuevo = nuevo_reporte.horometro_inicial
+
+            print(f"🔍 DEBUG - Actualizando máquina ID {maquina.id}:")
+            print(f"   - Valor anterior: {valor_anterior}")
+            print(f"   - Valor nuevo: {valor_nuevo}")
+
+            # Solo actualizar si el valor cambió
+            if valor_anterior != valor_nuevo:
+                # Actualizar el horometro_inicial de la máquina
+                maquina.horometro_inicial = valor_nuevo
+                print(f"✅ Horómetro actualizado de {valor_anterior} a {valor_nuevo}")
+
+                # Registrar el cambio en el historial
+                historial = HorometroHistorial(
+                    maquina_id=maquina.id,
+                    valor_anterior=valor_anterior,
+                    valor_nuevo=valor_nuevo,
+                    usuario_id=nuevo_reporte.usuario_id,
+                    motivo="reporte_laboral",
+                    reporte_laboral_id=nuevo_reporte.id
+                )
+                db.add(historial)
+            else:
+                print(f"⚠️  No se actualizó - valores iguales")
+    else:
+        print(f"⚠️  No se actualizó el horómetro - horometro_inicial es None o no hay maquina_id")
+
     db.commit()
     db.refresh(nuevo_reporte)
+
     return ReporteLaboralOut(
         id=nuevo_reporte.id,
         maquina_id=nuevo_reporte.maquina_id,

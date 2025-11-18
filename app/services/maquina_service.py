@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 def get_maquinas(db: Session) -> List[MaquinaOut]:
     maquinas = db.query(Maquina).all()
+    print(f"🔍 DEBUG - get_maquinas:")
+    for m in maquinas:
+        print(f"   - Máquina ID {m.id} ({m.nombre}): horometro_inicial = {m.horometro_inicial}")
     return [MaquinaOut.model_validate(m) for m in maquinas]
 
 def get_maquina(db: Session, maquina_id: int) -> Optional[MaquinaOut]:
@@ -51,14 +54,18 @@ def update_maquina(db: Session, maquina_id: int, maquina: MaquinaSchema) -> Opti
     existing = db.query(Maquina).filter(Maquina.id == maquina_id).first()
     if not existing:
         return None
-    
+
     # Actualizar solo los campos que vienen en el request
     maquina_data = maquina.model_dump(exclude_unset=True)
-    
-    # ✅ Asegurar que se actualice horometro_inicial si viene en los datos
+
+    # ✅ EXCLUIR horometro_inicial - solo se actualiza mediante reportes laborales
+    # o a través del endpoint específico /horometro-inicial
+    if 'horometro_inicial' in maquina_data:
+        del maquina_data['horometro_inicial']
+
     for field, value in maquina_data.items():
         setattr(existing, field, value)
-    
+
     db.commit()
     db.refresh(existing)
     return MaquinaOut.model_validate(existing)

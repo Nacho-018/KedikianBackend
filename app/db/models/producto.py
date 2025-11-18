@@ -12,7 +12,6 @@ class Producto(Base):
     url_imagen = Column(String(50), nullable=True)
 
     # Relaciones
-    pagos = relationship("Pago", back_populates="producto")
     movimientos_inventario = relationship("MovimientoInventario", back_populates="producto")
     
     # Timestamps

@@ -32,6 +32,22 @@ class MantenimientoOut(MantenimientoBase):
     class Config:
         from_attributes = True
 
+# NotaMaquina
+class NotaMaquinaBase(BaseModel):
+    texto: str = Field(..., min_length=3, description="Contenido de la nota")
+
+class NotaMaquinaCreate(NotaMaquinaBase):
+    pass
+
+class NotaMaquinaOut(NotaMaquinaBase):
+    id: int
+    maquina_id: int
+    usuario: str
+    fecha: datetime
+
+    class Config:
+        from_attributes = True
+
 # Usuario
 class UsuarioBase(BaseModel):
     nombre: str
@@ -169,7 +185,8 @@ class GastoOut(GastoBase):
 class MaquinaBase(BaseModel):
     nombre: str
     horas_uso: int = 0
-    horometro_inicial: Optional[float] = 0  # ✅ YA ESTÁ CORRECTO
+    horometro_inicial: Optional[float] = 0
+    proximo_mantenimiento: Optional[float] = None  # ✅ Horas para próximo mantenimiento
 
 class MaquinaCreate(MaquinaBase):
     pass
@@ -179,7 +196,8 @@ class MaquinaSchema(BaseModel):
     nombre: str
     horas_uso: int = 0
     horas_maquina: int = 0
-    horometro_inicial: Optional[float] = 0  # ✅ AGREGAR ESTA LÍNEA
+    horometro_inicial: Optional[float] = 0
+    proximo_mantenimiento: Optional[float] = None  # ✅ Horas para próximo mantenimiento
 
     class Config:
         from_attributes = True
@@ -189,12 +207,38 @@ class MaquinaOut(BaseModel):
     nombre: str
     horas_uso: int = 0
     horas_maquina: int = 0
-    horometro_inicial: Optional[float] = 0  # ✅ AGREGAR ESTA LÍNEA
+    horometro_inicial: Optional[float] = 0
+    proximo_mantenimiento: Optional[float] = None  # ✅ Horas para próximo mantenimiento
+    horas_restantes: Optional[float] = None  # ✅ Campo calculado
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
 
+    @property
+    def _horas_restantes_calculadas(self) -> Optional[float]:
+        """Calcula horas restantes: horometro_inicial - proximo_mantenimiento"""
+        if self.horometro_inicial is not None and self.proximo_mantenimiento is not None:
+            return float(self.horometro_inicial) - float(self.proximo_mantenimiento)
+        return None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Si no viene horas_restantes, calcularlo automáticamente
+        if self.horas_restantes is None:
+            self.horas_restantes = self._horas_restantes_calculadas
+
     class Config:
         from_attributes = True
+
+class ProximoMantenimientoUpdate(BaseModel):
+    horas: Optional[float] = Field(None, description="Horas para próximo mantenimiento (null para resetear a cálculo automático)")
+
+    @field_validator('horas')
+    @classmethod
+    def validate_horas(cls, v):
+        """Validar que las horas sean positivas si no son None"""
+        if v is not None and v <= 0:
+            raise ValueError("Las horas deben ser un número positivo mayor a 0")
+        return v
 
 # MovimientoInventario
 class MovimientoInventarioBase(BaseModel):
