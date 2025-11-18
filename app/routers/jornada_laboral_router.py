@@ -15,7 +15,7 @@ from app.schemas.schemas import (
 from app.services.jornada_laboral_service import JornadaLaboralService
 from app.security.auth import get_current_user
 from sqlalchemy import and_, desc
-from app.db.models.jornada_laboral import JornadaLaboral
+from app.db.models.jornada_laboral import JornadaLaboral, _get_limites_dia
 # ✅ SCHEMAS CORREGIDOS PARA REQUEST BODY
 class FicharEntradaRequest(BaseModel):
     usuario_id: int
@@ -150,50 +150,55 @@ async def actualizar_estado_jornada(
 ):
     """
     Actualiza el estado de una jornada basado en tiempo transcurrido
-    - A las 9h: pausa automática
-    - A las 13h: finalización automática
+    - Límites dinámicos según día de inicio:
+      * L-V: Pausa a 8h, finalización a 12h
+      * Sábados: Pausa a 4h, finalización a 8h
     """
     try:
         print(f"🔄 Actualizando estado de jornada: {jornada_id}")
-        
+
         jornada = db.query(JornadaLaboral).filter(
             JornadaLaboral.id == jornada_id
         ).first()
-        
+
         if not jornada:
             print(f"❌ Jornada no encontrada: {jornada_id}")
             raise HTTPException(status_code=404, detail="Jornada no encontrada")
-        
+
+        # Obtener límites según el día de inicio de la jornada
+        max_regular, max_total = _get_limites_dia(jornada.hora_inicio.date())
+
         print(f"   Estado actual: {jornada.estado}")
         print(f"   Horas regulares: {jornada.horas_regulares}")
         print(f"   Total horas: {jornada.total_horas}")
-        
+        print(f"   Límites del día: {max_regular}h regulares, {max_total}h total")
+
         # PASO 1: Calcular horas actuales en tiempo real
         if jornada.estado == 'activa':
             JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
             print(f"   Horas recalculadas: {jornada.total_horas}h")
-        
-        # PASO 2: Verificar si debe pausarse (9 horas)
-        if (jornada.horas_regulares >= 9.0 and 
-            not jornada.limite_regular_alcanzado and 
+
+        # PASO 2: Verificar si debe pausarse (límite regular)
+        if (jornada.horas_regulares >= max_regular and
+            not jornada.limite_regular_alcanzado and
             not jornada.overtime_confirmado):
-            
-            print(f"✋ Pausando jornada: alcanzó 9 horas")
-            
+
+            print(f"✋ Pausando jornada: alcanzó {max_regular} horas")
+
             jornada.estado = 'pausada'
             jornada.limite_regular_alcanzado = True
             jornada.pausa_automatica = True
             jornada.hora_limite_regular = datetime.now()
-        
-        # PASO 3: Verificar si debe finalizarse (13 horas)
-        elif jornada.total_horas >= 13.0 and jornada.hora_fin is None:
-            
-            print(f"🛑 Finalizando jornada: alcanzó 13 horas")
-            
+
+        # PASO 3: Verificar si debe finalizarse (límite total)
+        elif jornada.total_horas >= max_total and jornada.hora_fin is None:
+
+            print(f"🛑 Finalizando jornada: alcanzó {max_total} horas")
+
             jornada.hora_fin = datetime.now()
             jornada.estado = 'completada'
             jornada.finalizacion_forzosa = True
-            jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
+            jornada.motivo_finalizacion = f"Límite máximo de {max_total} horas alcanzado"
         
         # PASO 4: Guardar cambios
         try:
@@ -258,19 +263,19 @@ async def rechazar_horas_extras(
     notas_fin: Optional[str] = Query(None, description="Notas de finalización"),
     db: Session = Depends(get_db)
 ):
-    """✅ Rechazar horas extras y finalizar en 9 horas"""
+    """✅ Rechazar horas extras y finalizar en el límite de horas regulares"""
     try:
         print(f"❌ Rechazando horas extras para jornada: {jornada_id}")
-        
+
         jornada = JornadaLaboralService.rechazar_horas_extras(
             db=db,
             jornada_id=jornada_id,
             tiempo_descanso=tiempo_descanso,
             notas_fin=notas_fin
         )
-        
+
         response = JornadaLaboralResponse.from_orm(jornada)
-        print(f"✅ Jornada finalizada en 9h regulares: {response.id}")
+        print(f"✅ Jornada finalizada en horas regulares: {response.id}")
         
         return response
         
@@ -289,10 +294,11 @@ async def obtener_jornada_activa(
 ):
     """
     ✅ CORREGIDO: Obtener jornada activa con cálculo en tiempo real
+    - Límites dinámicos según día de inicio
     """
     try:
         print(f"🔍 Buscando jornada activa para usuario: {usuario_id}")
-        
+
         jornada = db.query(JornadaLaboral).filter(
             and_(
                 JornadaLaboral.usuario_id == usuario_id,
@@ -300,37 +306,41 @@ async def obtener_jornada_activa(
                 JornadaLaboral.hora_fin.is_(None)
             )
         ).order_by(desc(JornadaLaboral.created)).first()
-        
+
         if not jornada:
             print(f"ℹ️ No hay jornada activa")
             return None
-        
+
+        # Obtener límites según el día de inicio de la jornada
+        max_regular, max_total = _get_limites_dia(jornada.hora_inicio.date())
+
         print(f"✅ Jornada activa encontrada: ID {jornada.id}, estado: {jornada.estado}")
-        
+        print(f"   Límites del día: {max_regular}h regulares, {max_total}h total")
+
         # ✅ CRÍTICO: Calcular horas en tiempo real
         JornadaLaboralService._calcular_horas_en_tiempo_real(jornada)
-        
+
         # ✅ CRÍTICO: Verificar y actualizar estado automáticamente
         if jornada.estado == 'activa':
-            # Verificar si debe pausarse en 9 horas
-            if jornada.horas_regulares >= 9.0 and not jornada.limite_regular_alcanzado:
-                print(f"⏰ Auto-pausando jornada: alcanzó 9 horas")
+            # Verificar si debe pausarse al alcanzar límite regular
+            if jornada.horas_regulares >= max_regular and not jornada.limite_regular_alcanzado:
+                print(f"⏰ Auto-pausando jornada: alcanzó {max_regular} horas")
                 jornada.estado = 'pausada'
                 jornada.limite_regular_alcanzado = True
                 jornada.pausa_automatica = True
                 jornada.hora_limite_regular = datetime.now()
-                
+
                 db.commit()
                 db.refresh(jornada)
-            
-            # Verificar si debe finalizarse en 13 horas
-            elif jornada.total_horas >= 13.0:
-                print(f"🛑 Auto-finalizando jornada: alcanzó 13 horas")
+
+            # Verificar si debe finalizarse al alcanzar límite total
+            elif jornada.total_horas >= max_total:
+                print(f"🛑 Auto-finalizando jornada: alcanzó {max_total} horas")
                 jornada.hora_fin = datetime.now()
                 jornada.estado = 'completada'
                 jornada.finalizacion_forzosa = True
-                jornada.motivo_finalizacion = "Límite máximo de 13 horas alcanzado"
-                
+                jornada.motivo_finalizacion = f"Límite máximo de {max_total} horas alcanzado"
+
                 db.commit()
                 db.refresh(jornada)
                 return None  # Ya no está activa

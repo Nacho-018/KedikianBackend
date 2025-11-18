@@ -3,6 +3,34 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy import ForeignKey
 from app.db.database import Base
+from datetime import date as DateType
+
+# ============================================================================
+# FUNCIONES AUXILIARES PARA JORNADAS DIFERENCIADAS
+# ============================================================================
+
+def _es_sabado(fecha: DateType) -> bool:
+    """Verifica si una fecha es sábado (weekday = 5)"""
+    return fecha.weekday() == 5
+
+def _get_limites_dia(fecha: DateType) -> tuple[float, float]:
+    """
+    Retorna los límites de horas según el día de la semana.
+
+    Args:
+        fecha: Fecha de inicio de la jornada
+
+    Returns:
+        tuple: (horas_regulares_max, horas_totales_max)
+        - Sábados: (4.0, 8.0)
+        - Lunes-Viernes: (8.0, 12.0)
+    """
+    if _es_sabado(fecha):
+        return (4.0, 8.0)  # Sábado: 4h regulares + 4h extras
+    else:
+        return (8.0, 12.0)  # L-V: 8h regulares + 4h extras
+
+# ============================================================================
 
 class JornadaLaboral(Base):
     __tablename__ = "jornada_laboral"
@@ -18,17 +46,17 @@ class JornadaLaboral(Base):
     tiempo_descanso = Column(Integer, default=0)  # minutos
     
     # Cálculo de horas - MANEJO COMPLETO DE HORAS EXTRAS
-    horas_regulares = Column(Float, default=0.0)  # Máximo 9 horas
+    horas_regulares = Column(Float, default=0.0)  # Máximo 8h (L-V) o 4h (sábados)
     horas_extras = Column(Float, default=0.0)     # Máximo 4 horas adicionales
-    total_horas = Column(Float, default=0.0)      # Total trabajado
+    total_horas = Column(Float, default=0.0)      # Total: 12h (L-V) o 8h (sábados)
     
     # Estado y control de jornada
     estado = Column(String(20), default='activa')  # activa, pausada, completada, cancelada
     es_feriado = Column(Boolean, default=False)
     
     # CONTROL ESPECÍFICO DE HORAS EXTRAS
-    limite_regular_alcanzado = Column(Boolean, default=False)  # ¿Se alcanzaron las 9h?
-    hora_limite_regular = Column(DateTime, nullable=True)      # Momento exacto de las 9h
+    limite_regular_alcanzado = Column(Boolean, default=False)  # ¿Se alcanzaron las horas regulares? (8h L-V / 4h sábados)
+    hora_limite_regular = Column(DateTime, nullable=True)      # Momento exacto del límite regular
     overtime_solicitado = Column(Boolean, default=False)       # ¿Se mostró el diálogo?
     overtime_confirmado = Column(Boolean, default=False)       # ¿El usuario confirmó extras?
     overtime_iniciado = Column(DateTime, nullable=True)        # Momento de inicio de extras
@@ -100,36 +128,42 @@ class JornadaLaboral(Base):
     @property
     def debe_finalizar_automaticamente(self):
         """Verifica si debe finalizar automáticamente"""
-        return self.total_horas >= 13.0  # 9h regulares + 4h extras
+        if not self.hora_inicio:
+            return False
+        _, max_total = _get_limites_dia(self.hora_inicio.date())
+        return self.total_horas >= max_total  # 12h (L-V) o 8h (sábados)
     
     def calcular_horas(self):
         """Calcula y actualiza las horas trabajadas"""
         if not self.hora_inicio:
             return
-        
+
+        # Obtener límites según el día de inicio de la jornada
+        max_regular, _ = _get_limites_dia(self.hora_inicio.date())
+
         # Tiempo total trabajado en horas (descontando descansos)
         tiempo_trabajado_horas = self.tiempo_trabajado_minutos / 60.0
-        
+
         # Separar horas regulares y extras
-        if tiempo_trabajado_horas <= 9.0:
+        if tiempo_trabajado_horas <= max_regular:
             self.horas_regulares = tiempo_trabajado_horas
             self.horas_extras = 0.0
         else:
-            self.horas_regulares = 9.0
-            self.horas_extras = min(4.0, tiempo_trabajado_horas - 9.0)
-        
+            self.horas_regulares = max_regular
+            self.horas_extras = min(4.0, tiempo_trabajado_horas - max_regular)
+
         self.total_horas = self.horas_regulares + self.horas_extras
-        
+
         # Actualizar estado de límite regular
-        if self.horas_regulares >= 9.0 and not self.limite_regular_alcanzado:
+        if self.horas_regulares >= max_regular and not self.limite_regular_alcanzado:
             self.limite_regular_alcanzado = True
             if not self.hora_limite_regular:
-                # Calcular el momento exacto de las 9 horas
+                # Calcular el momento exacto del límite regular
                 from datetime import timedelta
-                self.hora_limite_regular = self.hora_inicio + timedelta(hours=9, minutes=self.tiempo_descanso)
+                self.hora_limite_regular = self.hora_inicio + timedelta(hours=max_regular, minutes=self.tiempo_descanso)
     
     def pausar_por_limite(self):
-        """Pausa la jornada al alcanzar las 9 horas"""
+        """Pausa la jornada al alcanzar el límite de horas regulares (8h L-V / 4h sábados)"""
         self.estado = 'pausada'
         self.pausa_automatica = True
         self.calcular_horas()
