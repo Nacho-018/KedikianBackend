@@ -261,7 +261,7 @@ class JornadaLaboralService:
     def obtener_jornadas_usuario(
         db: Session,
         usuario_id: int,
-        limite: int = 10,
+        limite: int = 500,
         offset: int = 0
     ) -> List[JornadaLaboral]:
         """✅ Obtiene jornadas de un usuario"""

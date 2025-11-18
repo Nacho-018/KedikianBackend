@@ -347,7 +347,7 @@ async def obtener_jornada_activa(
 @router.get("/usuario/{usuario_id}", response_model=List[JornadaLaboralResponse])
 async def obtener_jornadas_usuario(
     usuario_id: int,
-    limite: int = Query(10, description="Cantidad de registros"),
+    limite: int = Query(500, description="Cantidad de registros"),
     offset: int = Query(0, description="Desde qué registro"),
     db: Session = Depends(get_db)
 ):
