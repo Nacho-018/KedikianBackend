@@ -833,6 +833,93 @@ class TrabajoMaquinaResponse(BaseModel):
     horas_turno: int
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
-    
+
+    class Config:
+        from_attributes = True
+
+# ============= SCHEMAS PARA ENDPOINT OPTIMIZADO CON DETALLES =============
+
+class MaquinaConHorasSchema(BaseModel):
+    """Schema para máquinas con horas totales calculadas por proyecto"""
+    id: int
+    nombre: str
+    horas_uso: int = 0
+    horas_maquina: int = 0
+    horometro_inicial: Optional[float] = 0
+    proximo_mantenimiento: Optional[float] = None
+    horas_totales: int = 0  # Horas totales trabajadas en el proyecto
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class UsuarioDetalladoSchema(BaseModel):
+    """Schema completo de usuario para relaciones anidadas"""
+    id: int
+    nombre: str
+    email: EmailStr
+    estado: bool
+    roles: List[str]
+    fecha_creacion: datetime
+
+    class Config:
+        from_attributes = True
+
+class AridoDetalladoSchema(BaseModel):
+    """Schema para áridos con información completa del usuario"""
+    id: int
+    tipo_arido: str
+    nombre: Optional[str] = None
+    cantidad: int
+    fecha_entrega: datetime
+    usuario: UsuarioDetalladoSchema
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ReporteLaboralDetalladoSchema(BaseModel):
+    """Schema para reportes laborales con máquina y usuario completos"""
+    id: int
+    maquina_id: int
+    usuario_id: Optional[int] = None
+    proyecto_id: Optional[int] = None
+    fecha_asignacion: datetime
+    horas_turno: int
+    horometro_inicial: Optional[float] = None
+    maquina: MaquinaOut  # Máquina completa
+    usuario: Optional[UsuarioDetalladoSchema] = None  # Usuario completo
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ProyectoConDetallesResponse(BaseModel):
+    """Schema optimizado que retorna proyecto con todas sus relaciones en una sola query"""
+    # Datos del proyecto
+    id: int
+    nombre: str
+    descripcion: Optional[str] = None
+    estado: bool
+    fecha_creacion: Optional[datetime] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    progreso: Optional[int] = 0
+    gerente: Optional[str] = None
+    contrato_id: Optional[int] = None
+    ubicacion: Optional[str] = None
+    contrato_url: Optional[str] = None
+    contrato_nombre: Optional[str] = None
+    contrato_tipo: Optional[str] = None
+
+    # Relaciones optimizadas
+    maquinas: List[MaquinaConHorasSchema] = []  # Máquinas con horas totales
+    aridos: List[AridoDetalladoSchema] = []  # Áridos con usuario
+    reportes_laborales: List[ReporteLaboralDetalladoSchema] = []  # Reportes con máquina y usuario
+    contrato_archivos: List[ContratoArchivoResponse] = []  # Archivos de contrato
+
     class Config:
         from_attributes = True

@@ -126,22 +126,30 @@ def delete_proyecto(db: Session, proyecto_id: int) -> bool:
 def get_maquinas_by_proyecto(db: Session, proyecto_id: int) -> List[dict]:
     """
     Obtiene las máquinas asignadas a un proyecto junto con sus horas totales.
-    CORRECCIÓN: Se eliminó el campo 'estado' que ya no existe en la tabla maquina.
+
+    OPTIMIZADO: Usa joinedload() para pre-cargar las máquinas y eliminar N+1 queries.
+    Antes: 1 query + N queries (una por cada reporte)
+    Ahora: 1-2 queries con JOINs
     """
     try:
+        # OPTIMIZACIÓN: Pre-cargar la relación 'maquina' con joinedload
+        # Esto ejecuta un JOIN en lugar de queries individuales
         reportes = (
             db.query(ReporteLaboral)
             .filter(ReporteLaboral.proyecto_id == proyecto_id)
+            .options(joinedload(ReporteLaboral.maquina))  # ← Pre-carga máquinas
             .all()
         )
 
         maquinas_dict = {}
         for reporte in reportes:
-            # Buscar la máquina manualmente para no depender de joinedload
-            maquina = db.query(Maquina).filter(Maquina.id == reporte.maquina_id).first()
+            # IMPORTANTE: reporte.maquina ya está cargada en memoria (no genera query)
+            maquina = reporte.maquina
+
             if not maquina:
                 print(f"⚠️ Reporte {reporte.id} tiene maquina_id {reporte.maquina_id} que no existe")
                 continue
+
             if maquina.id not in maquinas_dict:
                 maquinas_dict[maquina.id] = {
                     "id": maquina.id,

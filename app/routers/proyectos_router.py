@@ -2,7 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from typing import List, Optional
 from app.db.dependencies import get_db
-from app.schemas.schemas import ProyectoSchema, ProyectoCreate, ContratoArchivoResponse
+from app.schemas.schemas import (
+    ProyectoSchema,
+    ProyectoCreate,
+    ContratoArchivoResponse,
+    ProyectoConDetallesResponse
+)
 from sqlalchemy.orm import Session
 import shutil
 import os
@@ -16,6 +21,10 @@ from app.services.proyecto_service import (
     get_aridos_by_proyecto,
     get_cantidad_proyectos_activos,
     get_all_proyectos_paginated
+)
+from app.services.proyecto_optimizado_service import (
+    get_proyecto_con_detalles_optimizado,
+    get_proyectos_con_detalles_optimizado
 )
 from app.security.auth import get_current_user
 from app.db.models import ReporteLaboral, Proyecto, ContratoArchivo
@@ -55,6 +64,53 @@ def get_proyectos(
                 proyecto.contrato_tipo = ultimo_contrato.tipo_archivo
     
     return proyectos
+
+# ============= RUTAS ESPECÍFICAS (DEBEN IR ANTES DE /{id}) =============
+
+@router.get("/con-detalles", response_model=List[ProyectoConDetallesResponse])
+def get_proyectos_con_detalles(
+    solo_activos: bool = True,
+    session: Session = Depends(get_db)
+):
+    """
+    Endpoint optimizado que retorna TODOS los proyectos con sus relaciones completas.
+
+    Elimina el problema de N+1 queries usando eager loading.
+    Retorna en UNA SOLA llamada:
+    - Información del proyecto
+    - Máquinas asociadas con horas totales
+    - Áridos asociados con información de usuario
+    - Reportes laborales con máquina y usuario completos
+    - Archivos de contrato
+
+    Args:
+        solo_activos: Si True, solo retorna proyectos activos (default: True)
+
+    Returns:
+        Lista de proyectos con todas sus relaciones
+
+    Ejemplo de uso:
+        GET /api/v1/proyectos/con-detalles
+        GET /api/v1/proyectos/con-detalles?solo_activos=false
+    """
+    try:
+        return get_proyectos_con_detalles_optimizado(session, solo_activos)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener proyectos con detalles: {str(e)}"
+        )
+
+@router.get("/activos/cantidad")
+def cantidad_proyectos_activos(session: Session = Depends(get_db)):
+    cantidad = get_cantidad_proyectos_activos(session)
+    return {"cantidad_activos": cantidad}
+
+@router.get("/paginado")
+def proyectos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
+    return get_all_proyectos_paginated(session, skip=skip, limit=limit)
+
+# ============= RUTAS CON PARÁMETROS (/{id} debe ir después) =============
 
 @router.get("/{id}", response_model=ProyectoSchema)
 def get_proyecto(id: int, session: Session = Depends(get_db)):
@@ -307,14 +363,53 @@ def get_reportes_laborales_proyecto(id: int, session: Session = Depends(get_db))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/activos/cantidad")
-def cantidad_proyectos_activos(session: Session = Depends(get_db)):
-    cantidad = get_cantidad_proyectos_activos(session)
-    return {"cantidad_activos": cantidad}
+# ============= ENDPOINTS OPTIMIZADOS CON EAGER LOADING =============
 
-@router.get("/paginado")
-def proyectos_paginado(skip: int = 0, limit: int = 15, session: Session = Depends(get_db)):
-    return get_all_proyectos_paginated(session, skip=skip, limit=limit)
+@router.get("/{id}/con-detalles", response_model=ProyectoConDetallesResponse)
+def get_proyecto_con_detalles(
+    id: int,
+    session: Session = Depends(get_db)
+):
+    """
+    Endpoint optimizado que retorna UN proyecto específico con todas sus relaciones.
+
+    Elimina el problema de N+1 queries usando eager loading.
+    Retorna en UNA SOLA llamada:
+    - Información del proyecto
+    - Máquinas asociadas con horas totales
+    - Áridos asociados con información de usuario
+    - Reportes laborales con máquina y usuario completos
+    - Archivos de contrato
+
+    Args:
+        id: ID del proyecto a buscar
+
+    Returns:
+        Proyecto con todas sus relaciones
+
+    Raises:
+        HTTPException 404: Si el proyecto no existe
+
+    Ejemplo de uso:
+        GET /api/v1/proyectos/123/con-detalles
+    """
+    try:
+        proyecto = get_proyecto_con_detalles_optimizado(session, id)
+
+        if not proyecto:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Proyecto con ID {id} no encontrado"
+            )
+
+        return proyecto
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener proyecto con detalles: {str(e)}"
+        )
 
 # Endpoint para descargar contrato
 @router.get("/{proyecto_id}/contrato")
