@@ -698,6 +698,60 @@ class JornadaLaboralCreate(BaseModel):
     notas_inicio: Optional[str] = None
     ubicacion: Optional[Dict[str, Any]] = None
 
+class JornadaLaboralCreateManual(BaseModel):
+    """Schema para crear jornadas laborales manualmente con todos los campos"""
+    usuario_id: int
+    fecha: str  # formato: "2025-11-23"
+    hora_inicio: str  # formato: "2025-11-23T08:00:00"
+    hora_fin: Optional[str] = None  # formato: "2025-11-23T18:00:00" o null
+    tiempo_descanso: int = Field(default=60, ge=0, description="Tiempo de descanso en minutos (>= 0)")
+    es_feriado: bool = Field(default=False, description="Indica si es un día feriado")
+    estado: str = Field(default="activa", description="Estado de la jornada: activa, completada, pausada, cancelada")
+    notas_inicio: Optional[str] = None
+    notas_fin: Optional[str] = None
+
+    @field_validator('estado')
+    @classmethod
+    def validar_estado(cls, v: str) -> str:
+        estados_validos = ['activa', 'completada', 'pausada', 'cancelada']
+        if v.lower() not in estados_validos:
+            raise ValueError(f'Estado debe ser uno de: {estados_validos}')
+        return v.lower()
+
+    @field_validator('hora_fin')
+    @classmethod
+    def validar_hora_fin(cls, v: Optional[str], info) -> Optional[str]:
+        # Verificar si estado es completada y hora_fin es None
+        estado = info.data.get('estado', '').lower()
+        if estado == 'completada' and not v:
+            raise ValueError('hora_fin es obligatorio cuando estado es "completada"')
+
+        # Verificar que hora_fin sea posterior a hora_inicio
+        if v and 'hora_inicio' in info.data:
+            try:
+                hora_inicio = datetime.fromisoformat(info.data['hora_inicio'])
+                hora_fin = datetime.fromisoformat(v)
+                if hora_fin <= hora_inicio:
+                    raise ValueError('hora_fin debe ser posterior a hora_inicio')
+            except ValueError as e:
+                if 'posterior' in str(e):
+                    raise
+                raise ValueError(f'Formato de fecha inválido: {str(e)}')
+
+        return v
+
+    @field_validator('fecha', 'hora_inicio')
+    @classmethod
+    def validar_formato_fecha(cls, v: str) -> str:
+        try:
+            if len(v) == 10:  # formato fecha: "2025-11-23"
+                datetime.strptime(v, '%Y-%m-%d')
+            else:  # formato datetime: "2025-11-23T08:00:00"
+                datetime.fromisoformat(v)
+        except ValueError:
+            raise ValueError(f'Formato de fecha/hora inválido. Use ISO format (YYYY-MM-DD o YYYY-MM-DDTHH:MM:SS)')
+        return v
+
 class JornadaLaboralUpdate(BaseModel):
     tiempo_descanso: Optional[int] = None
     notas_fin: Optional[str] = None

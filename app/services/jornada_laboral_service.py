@@ -10,9 +10,114 @@ from fastapi import HTTPException
 import json
 
 class JornadaLaboralService:
-    
+
     # ============ MÉTODOS DE FICHAJE ============
-    
+
+    @staticmethod
+    def crear_jornada_manual(
+        db: Session,
+        usuario_id: int,
+        fecha: str,
+        hora_inicio: str,
+        hora_fin: Optional[str] = None,
+        tiempo_descanso: int = 60,
+        es_feriado: bool = False,
+        estado: str = "activa",
+        notas_inicio: Optional[str] = None,
+        notas_fin: Optional[str] = None
+    ) -> JornadaLaboral:
+        """
+        ✅ Crea una jornada laboral manualmente con todos los campos.
+        Permite crear jornadas históricas o con datos completos.
+
+        Validaciones:
+        - usuario_id debe existir
+        - Si estado = "completada", hora_fin es obligatorio
+        - Si hora_fin no es null, debe ser mayor que hora_inicio
+        - tiempo_descanso >= 0
+
+        Cálculos automáticos:
+        - horas_regulares: según límite del día (8h L-V, 4h sábados)
+        - horas_extras: excedente sobre límite regular (máx 4h)
+        - total_horas: (hora_fin - hora_inicio - tiempo_descanso)
+        """
+        print(f"🚀 Creando jornada manual para usuario {usuario_id}")
+
+        # 1. Verificar que el usuario existe
+        usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+        if not usuario:
+            print(f"❌ Usuario no encontrado: {usuario_id}")
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # 2. Parsear fechas y timestamps
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date() if len(fecha) == 10 else datetime.fromisoformat(fecha).date()
+            hora_inicio_obj = datetime.fromisoformat(hora_inicio)
+            hora_fin_obj = datetime.fromisoformat(hora_fin) if hora_fin else None
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Formato de fecha inválido: {str(e)}")
+
+        # 3. Validaciones adicionales
+        if estado.lower() == 'completada' and not hora_fin_obj:
+            raise HTTPException(status_code=400, detail="hora_fin es obligatorio cuando estado es 'completada'")
+
+        if hora_fin_obj and hora_fin_obj <= hora_inicio_obj:
+            raise HTTPException(status_code=400, detail="hora_fin debe ser posterior a hora_inicio")
+
+        if tiempo_descanso < 0:
+            raise HTTPException(status_code=400, detail="tiempo_descanso debe ser mayor o igual a 0")
+
+        # 4. Crear la jornada
+        nueva_jornada = JornadaLaboral(
+            usuario_id=usuario_id,
+            fecha=fecha_obj,
+            hora_inicio=hora_inicio_obj,
+            hora_fin=hora_fin_obj,
+            tiempo_descanso=tiempo_descanso,
+            es_feriado=es_feriado,
+            estado=estado.lower(),
+            notas_inicio=notas_inicio,
+            notas_fin=notas_fin,
+            # Inicializar campos de control
+            horas_regulares=0.0,
+            horas_extras=0.0,
+            total_horas=0.0,
+            limite_regular_alcanzado=False,
+            overtime_solicitado=False,
+            overtime_confirmado=False,
+            pausa_automatica=False,
+            finalizacion_forzosa=False,
+            advertencia_8h_mostrada=False,
+            advertencia_limite_mostrada=False
+        )
+
+        # 5. Calcular horas si tiene hora_fin
+        if hora_fin_obj:
+            print(f"📊 Calculando horas trabajadas...")
+            JornadaLaboralService._calcular_horas_trabajadas(nueva_jornada)
+            print(f"   Horas regulares: {nueva_jornada.horas_regulares:.2f}h")
+            print(f"   Horas extras: {nueva_jornada.horas_extras:.2f}h")
+            print(f"   Total horas: {nueva_jornada.total_horas:.2f}h")
+
+        # 6. Guardar en la base de datos
+        try:
+            db.add(nueva_jornada)
+            db.commit()
+            db.refresh(nueva_jornada)
+
+            print(f"✅ Jornada manual creada exitosamente con ID: {nueva_jornada.id}")
+            print(f"   Usuario: {usuario_id}")
+            print(f"   Fecha: {fecha_obj}")
+            print(f"   Estado: {estado}")
+            print(f"   Total horas: {nueva_jornada.total_horas:.2f}h")
+
+            return nueva_jornada
+
+        except Exception as e:
+            print(f"❌ Error guardando jornada: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error al guardar jornada: {str(e)}")
+
     @staticmethod
     def iniciar_jornada(
         db: Session,

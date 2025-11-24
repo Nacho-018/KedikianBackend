@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.db.dependencies import get_db
 from app.schemas.schemas import (
     JornadaLaboralCreate,
+    JornadaLaboralCreateManual,
     JornadaLaboralResponse,
     JornadaLaboralUpdate,
     EstadisticasJornadaResponse
@@ -51,6 +52,82 @@ router = APIRouter(
     tags=["Jornadas Laborales"], 
     dependencies=[Depends(get_current_user)]
 )
+
+# ============ ENDPOINTS DE CREACIÓN ============
+
+@router.post("", response_model=JornadaLaboralResponse, status_code=201)
+async def crear_jornada_laboral_manual(
+    jornada: JornadaLaboralCreateManual,
+    db: Session = Depends(get_db)
+):
+    """
+    ✅ NUEVO: Crear jornada laboral manualmente con todos los campos
+
+    Permite crear jornadas laborales completas (históricas o actuales) con todos los campos.
+
+    **Validaciones:**
+    - usuario_id debe existir en la tabla usuarios
+    - Si estado = "completada", hora_fin es OBLIGATORIO
+    - Si hora_fin no es null, debe ser mayor que hora_inicio
+    - tiempo_descanso >= 0
+
+    **Cálculos automáticos al crear:**
+    - horas_regulares: calculadas según límite del día (8h L-V, 4h sábados)
+    - horas_extras: calculadas como excedente sobre límite regular (máx 4h)
+    - total_horas: (hora_fin - hora_inicio - tiempo_descanso) en horas decimales
+    - Si es_feriado = true, se marca la jornada como feriado
+
+    **Request Body:**
+    ```json
+    {
+      "usuario_id": 4,
+      "fecha": "2025-11-23",
+      "hora_inicio": "2025-11-23T08:00:00",
+      "hora_fin": "2025-11-23T18:00:00",  // Opcional (null si jornada en curso)
+      "tiempo_descanso": 60,               // en minutos (default: 60)
+      "es_feriado": false,                 // boolean (default: false)
+      "estado": "completada",              // "activa" | "completada" | "pausada" | "cancelada"
+      "notas_inicio": "string",            // Opcional
+      "notas_fin": "string"                // Opcional
+    }
+    ```
+
+    **Response:** 201 Created con la jornada creada completa
+    """
+    try:
+        print(f"📝 Creando jornada laboral manual")
+        print(f"   Usuario ID: {jornada.usuario_id}")
+        print(f"   Fecha: {jornada.fecha}")
+        print(f"   Estado: {jornada.estado}")
+
+        nueva_jornada = JornadaLaboralService.crear_jornada_manual(
+            db=db,
+            usuario_id=jornada.usuario_id,
+            fecha=jornada.fecha,
+            hora_inicio=jornada.hora_inicio,
+            hora_fin=jornada.hora_fin,
+            tiempo_descanso=jornada.tiempo_descanso,
+            es_feriado=jornada.es_feriado,
+            estado=jornada.estado,
+            notas_inicio=jornada.notas_inicio,
+            notas_fin=jornada.notas_fin
+        )
+
+        response = JornadaLaboralResponse.from_orm(nueva_jornada)
+        print(f"✅ Jornada manual creada con ID: {response.id}")
+        print(f"   Total horas: {response.total_horas}h")
+        print(f"   Horas regulares: {response.horas_regulares}h")
+        print(f"   Horas extras: {response.horas_extras}h")
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error inesperado al crear jornada manual: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error al crear jornada laboral: {str(e)}")
 
 # ============ ENDPOINTS DE FICHAJE ============
 
