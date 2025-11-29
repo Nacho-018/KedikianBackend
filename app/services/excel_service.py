@@ -13,33 +13,35 @@ def get_operarios_activos(db: Session) -> List[OperarioExcel]:
     return [OperarioExcel.model_validate(op) for op in operarios]
 
 
-def get_configuracion_actual(db: Session) -> ConfiguracionTarifasCreate:
-    """Obtiene la configuración de tarifas actual"""
-    config = db.query(ConfiguracionTarifas).filter(
-        ConfiguracionTarifas.activo == True
-    ).first()
-    if not config:
+def get_configuracion_actual(db: Session):
+    """Obtiene la configuración de tarifas actual (siempre el primer registro)"""
+    config = db.query(ConfiguracionTarifas).first()
+    return config
+
+
+def actualizar_configuracion(db: Session, nueva_config: ConfiguracionTarifasCreate):
+    """Actualiza la configuración de tarifas (siempre actualiza el primer registro)"""
+    config = db.query(ConfiguracionTarifas).first()
+
+    if config:
+        # Actualizar registro existente
+        config.hora_normal = nueva_config.horaNormal
+        config.hora_feriado = nueva_config.horaFeriado
+        config.hora_extra = nueva_config.horaExtra
+        config.multiplicador_extra = nueva_config.multiplicadorExtra
+    else:
+        # Crear nuevo registro si no existe
         config = ConfiguracionTarifas(
-            hora_normal=6500,
-            hora_feriado=13000,
-            multiplicador_extra=1.5
+            hora_normal=nueva_config.horaNormal,
+            hora_feriado=nueva_config.horaFeriado,
+            hora_extra=nueva_config.horaExtra,
+            multiplicador_extra=nueva_config.multiplicadorExtra
         )
         db.add(config)
-        db.commit()
-        db.refresh(config)
-    return ConfiguracionTarifasCreate.model_validate(config)
 
-
-def actualizar_configuracion(db: Session, nueva_config: ConfiguracionTarifasCreate) -> ConfiguracionTarifasCreate:
-    """Actualiza la configuración de tarifas"""
-    db.query(ConfiguracionTarifas).filter(
-        ConfiguracionTarifas.activo == True
-    ).update({"activo": False})
-    config = ConfiguracionTarifas(**nueva_config.model_dump())
-    db.add(config)
     db.commit()
     db.refresh(config)
-    return ConfiguracionTarifasCreate.model_validate(config)
+    return config
 
 
 def guardar_registro_horas(db: Session, registro_data: RegistroHorasCreate) -> RegistroHorasCreate:
@@ -48,12 +50,15 @@ def guardar_registro_horas(db: Session, registro_data: RegistroHorasCreate) -> R
         RegistroHoras.operario_id == registro_data.operario_id,
         RegistroHoras.periodo == registro_data.periodo
     ).first()
+
     config = get_configuracion_actual(db)
-    hora_extra = config.hora_normal * config.multiplicador_extra
+    if not config:
+        raise ValueError("No existe configuración de tarifas. El administrador debe configurarlas primero.")
+
     total_calculado = (
         registro_data.horas_normales * config.hora_normal +
         registro_data.horas_feriado * config.hora_feriado +
-        registro_data.horas_extras * hora_extra
+        registro_data.horas_extras * config.hora_extra
     )
     if registro_existente:
         for key, value in registro_data.model_dump().items():
@@ -77,13 +82,16 @@ def guardar_registro_horas(db: Session, registro_data: RegistroHorasCreate) -> R
 def generar_resumen_excel(db: Session, periodo: str, operarios_data: List[OperarioExcel]) -> ResumenExcelResponse:
     """Genera el resumen para Excel y lo guarda en la base de datos"""
     config = get_configuracion_actual(db)
+    if not config:
+        raise ValueError("No existe configuración de tarifas. El administrador debe configurarlas primero.")
+
     total_horas_normales = sum(op.horas_normales for op in operarios_data)
     total_horas_feriado = sum(op.horas_feriado for op in operarios_data)
     total_horas_extras = sum(op.horas_extras for op in operarios_data)
     basico_remunerativo = total_horas_normales * config.hora_normal
     asistencia_perfecta_remunerativo = basico_remunerativo * 0.20
     feriado_remunerativo = total_horas_feriado * config.hora_feriado
-    extras_remunerativo = total_horas_extras * (config.hora_normal * config.multiplicador_extra)
+    extras_remunerativo = total_horas_extras * config.hora_extra
     total_remunerativo = (
         basico_remunerativo + 
         asistencia_perfecta_remunerativo + 

@@ -35,24 +35,73 @@ async def get_operarios_activos(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener operarios: {str(e)}")
 
-@router.get("/configuracion", response_model=ConfiguracionTarifasResponse)
-async def get_configuracion_actual(db: Session = Depends(get_db)):
-    """Obtiene la configuración actual de tarifas"""
+@router.get("/configuracion-tarifas", response_model=ConfiguracionTarifasResponse)
+async def obtener_configuracion_tarifas(db: Session = Depends(get_db)):
+    """
+    Obtiene la configuración actual de tarifas.
+
+    Returns:
+        ConfiguracionTarifasResponse con los valores actuales de:
+        - horaNormal: Tarifa por hora normal
+        - horaFeriado: Tarifa por hora en feriados
+        - horaExtra: Tarifa por hora extra
+        - multiplicadorExtra: Multiplicador para horas extras
+    """
     try:
-        config = excel_service.get_configuracion_actual()
-        return config
+        config = excel_service.get_configuracion_actual(db)
+
+        if not config:
+            raise HTTPException(
+                status_code=404,
+                detail="No existe configuración de tarifas. El administrador debe configurarlas primero usando POST /v1/excel/configuracion-tarifas"
+            )
+
+        return ConfiguracionTarifasResponse.from_orm(config)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener configuración: {str(e)}")
 
-@router.put("/configuracion", response_model=ConfiguracionTarifasResponse)
-async def actualizar_configuracion(
+@router.post("/configuracion-tarifas")
+async def guardar_configuracion_tarifas(
     nueva_config: ConfiguracionTarifasCreate,
     db: Session = Depends(get_db)
 ):
-    """Actualiza la configuración de tarifas"""
+    """
+    Actualiza la configuración de tarifas.
+
+    Body:
+        - horaNormal: Tarifa por hora normal (debe ser > 0)
+        - horaFeriado: Tarifa por hora en feriados (debe ser > 0)
+        - horaExtra: Tarifa por hora extra (debe ser > 0)
+        - multiplicadorExtra: Multiplicador para horas extras (debe ser >= 1.0)
+
+    Returns:
+        Mensaje de confirmación y la configuración actualizada
+    """
     try:
-        config = excel_service.actualizar_configuracion(nueva_config)
-        return config
+        # Validaciones
+        if nueva_config.horaNormal <= 0 or nueva_config.horaFeriado <= 0 or nueva_config.horaExtra <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Las tarifas deben ser mayores a 0"
+            )
+
+        if nueva_config.multiplicadorExtra < 1.0:
+            raise HTTPException(
+                status_code=400,
+                detail="El multiplicador extra debe ser mayor o igual a 1.0"
+            )
+
+        # Actualizar configuración
+        config = excel_service.actualizar_configuracion(db, nueva_config)
+
+        return {
+            "message": "Configuración actualizada exitosamente",
+            "configuracion": ConfiguracionTarifasResponse.from_orm(config)
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al actualizar configuración: {str(e)}")
 

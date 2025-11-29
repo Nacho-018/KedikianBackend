@@ -452,21 +452,35 @@ class ReporteLaboralAPIResponse(BaseModel):
 
 
 class ConfiguracionTarifasBase(BaseModel):
-    hora_normal: float
-    hora_feriado: float
-    multiplicador_extra: float
+    horaNormal: float
+    horaFeriado: float
+    horaExtra: float
+    multiplicadorExtra: float = 1.5
 
 class ConfiguracionTarifasCreate(ConfiguracionTarifasBase):
+    """Schema para crear/actualizar configuración de tarifas"""
     pass
 
-class ConfiguracionTarifasResponse(ConfiguracionTarifasBase):
-    id: int
-    activo: bool
-    created_at: datetime
-    updated_at: datetime
-    
+class ConfiguracionTarifasResponse(BaseModel):
+    """Schema para respuesta de configuración de tarifas"""
+    horaNormal: float
+    horaFeriado: float
+    horaExtra: float
+    multiplicadorExtra: float
+
     class Config:
         from_attributes = True
+        populate_by_name = True
+
+    @classmethod
+    def from_orm(cls, orm_obj):
+        """Convierte el objeto ORM a camelCase para la respuesta"""
+        return cls(
+            horaNormal=orm_obj.hora_normal,
+            horaFeriado=orm_obj.hora_feriado,
+            horaExtra=orm_obj.hora_extra,
+            multiplicadorExtra=orm_obj.multiplicador_extra
+        )
 
 class OperarioExcel(BaseModel):
     nombre: str
