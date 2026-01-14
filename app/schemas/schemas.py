@@ -592,6 +592,7 @@ class EntregaAridoBase(BaseModel):
     nombre: Optional[str] = None
     cantidad: int
     fecha_entrega: datetime
+    observaciones: Optional[str] = None
 
 class EntregaAridoCreate(EntregaAridoBase):
     pass

@@ -12,6 +12,7 @@ class EntregaArido(Base):
     nombre = Column(String, nullable=True)  # ← CORREGIDO: agregado el =
     cantidad = Column(Float)  # ← CAMBIADO a Float para soportar decimales
     fecha_entrega = Column(DateTime)
+    observaciones = Column(String, nullable=True)
 
     # Relaciones
     proyecto = relationship("Proyecto", back_populates="entrega_arido")
