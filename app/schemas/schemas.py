@@ -992,3 +992,83 @@ class ProyectoConDetallesResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# Cuenta Corriente - Reportes
+class ReporteCuentaCorrienteBase(BaseModel):
+    proyecto_id: int
+    periodo_inicio: date
+    periodo_fin: date
+    total_aridos: Optional[float] = 0.0
+    total_horas: Optional[float] = 0.0
+    importe_aridos: Optional[float] = 0.0
+    importe_horas: Optional[float] = 0.0
+    importe_total: Optional[float] = 0.0
+    estado: Optional[str] = "pendiente"  # "pendiente" o "pagado"
+    fecha_generacion: datetime
+    observaciones: Optional[str] = None
+    numero_factura: Optional[str] = None
+    fecha_pago: Optional[date] = None
+
+class ReporteCuentaCorrienteCreate(BaseModel):
+    proyecto_id: int
+    periodo_inicio: date
+    periodo_fin: date
+    observaciones: Optional[str] = None
+
+class ReporteCuentaCorrienteUpdate(BaseModel):
+    estado: Optional[str] = None
+    observaciones: Optional[str] = None
+    numero_factura: Optional[str] = None
+    fecha_pago: Optional[date] = None
+
+class ReporteCuentaCorrienteOut(ReporteCuentaCorrienteBase):
+    id: int
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Schemas para el resumen de proyecto con precios
+class DetalleAridoConPrecio(BaseModel):
+    tipo_arido: str
+    cantidad: float  # m³
+    precio_unitario: float  # precio por m³
+    importe: float  # cantidad * precio_unitario
+
+class DetalleHorasConTarifa(BaseModel):
+    maquina_id: int
+    maquina_nombre: str
+    total_horas: float
+    tarifa_hora: float  # tarifa por hora
+    importe: float  # total_horas * tarifa_hora
+
+class ResumenProyectoSchema(BaseModel):
+    proyecto_id: int
+    proyecto_nombre: str
+    periodo_inicio: date
+    periodo_fin: date
+
+    # Detalle de áridos
+    aridos: List[DetalleAridoConPrecio]
+    total_aridos_m3: float
+    total_importe_aridos: float
+
+    # Detalle de horas de máquinas
+    horas_maquinas: List[DetalleHorasConTarifa]
+    total_horas: float
+    total_importe_horas: float
+
+    # Total general
+    importe_total: float
+
+# Schema para precios de áridos
+class PrecioAridoSchema(BaseModel):
+    tipo_arido: str
+    precio_m3: float
+
+# Schema para tarifas de máquinas
+class TarifaMaquinaSchema(BaseModel):
+    maquina_id: int
+    maquina_nombre: str
+    tarifa_hora: float

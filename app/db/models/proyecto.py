@@ -30,6 +30,7 @@ class Proyecto(Base):
     pagos = relationship("Pago", back_populates="proyecto")
     entrega_arido = relationship("EntregaArido", back_populates="proyecto")
     reportes_laborales = relationship("ReporteLaboral", back_populates="proyecto")
+    reportes_cuenta_corriente = relationship("ReporteCuentaCorriente", back_populates="proyecto", cascade="all, delete-orphan")
     
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())
