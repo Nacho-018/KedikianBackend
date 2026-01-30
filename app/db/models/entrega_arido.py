@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Float
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, String, Float, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -11,8 +11,10 @@ class EntregaArido(Base):
     tipo_arido = Column(String)
     nombre = Column(String, nullable=True)  # ← CORREGIDO: agregado el =
     cantidad = Column(Float)  # ← CAMBIADO a Float para soportar decimales
+    precio_unitario = Column(Float, nullable=True)  # Precio unitario del árido
     fecha_entrega = Column(DateTime)
     observaciones = Column(String, nullable=True)
+    pagado = Column(Boolean, default=False, nullable=False)  # Estado de pago
 
     # Relaciones
     proyecto = relationship("Proyecto", back_populates="entrega_arido")

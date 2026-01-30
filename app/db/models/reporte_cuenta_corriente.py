@@ -15,7 +15,7 @@ class ReporteCuentaCorriente(Base):
     importe_aridos = Column(Numeric(12, 2), default=0.0)  # Importe total de áridos
     importe_horas = Column(Numeric(12, 2), default=0.0)  # Importe total de horas de máquinas
     importe_total = Column(Numeric(12, 2), default=0.0)  # Importe total del reporte
-    estado = Column(String(20), default="pendiente")  # "pendiente" o "pagado"
+    estado = Column(String(20), default="pendiente")  # "pendiente", "parcial" o "pagado"
     fecha_generacion = Column(DateTime, nullable=False)
 
     # Campos adicionales opcionales

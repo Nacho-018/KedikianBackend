@@ -6,7 +6,11 @@ from app.schemas.schemas import (
     ProyectoSchema,
     ProyectoCreate,
     ContratoArchivoResponse,
-    ProyectoConDetallesResponse
+    ProyectoConDetallesResponse,
+    ActualizarPrecioAridoRequest,
+    ActualizarPrecioAridoResponse,
+    ActualizarTarifaMaquinaRequest,
+    ActualizarTarifaMaquinaResponse
 )
 from sqlalchemy.orm import Session
 import shutil
@@ -27,7 +31,7 @@ from app.services.proyecto_optimizado_service import (
     get_proyectos_con_detalles_optimizado
 )
 from app.security.auth import get_current_user
-from app.db.models import ReporteLaboral, Proyecto, ContratoArchivo
+from app.db.models import ReporteLaboral, Proyecto, ContratoArchivo, EntregaArido
 
 router = APIRouter(prefix="/proyectos", tags=["Proyectos"], dependencies=[Depends(get_current_user)])
 
@@ -437,3 +441,199 @@ async def descargar_contrato(proyecto_id: int, db: Session = Depends(get_db)):
         media_type=media_type,
         filename=filename
     )
+
+# ============= ENDPOINTS PARA ACTUALIZACIÓN DE PRECIOS Y TARIFAS =============
+
+@router.put("/{proyecto_id}/aridos/actualizar-precio", response_model=ActualizarPrecioAridoResponse)
+async def actualizar_precio_arido(
+    proyecto_id: int,
+    data: ActualizarPrecioAridoRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza el precio unitario de todos los registros de áridos
+    de un tipo específico en un período determinado.
+
+    Args:
+        proyecto_id: ID del proyecto
+        data: Datos de actualización (tipo_arido, nuevo_precio, periodo_inicio, periodo_fin)
+        db: Sesión de base de datos
+
+    Returns:
+        Resumen de la actualización con información de precios e importes
+
+    Raises:
+        HTTPException 404: Si el proyecto no existe
+        HTTPException 400: Si no hay registros que actualizar o el precio no es válido
+    """
+    try:
+        # Verificar que el proyecto existe
+        proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+        if not proyecto:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+        # Validar nuevo precio
+        if data.nuevo_precio <= 0:
+            raise HTTPException(status_code=400, detail="El precio debe ser mayor a 0")
+
+        # Validar fechas
+        if data.periodo_inicio > data.periodo_fin:
+            raise HTTPException(
+                status_code=400,
+                detail="La fecha de inicio debe ser anterior a la fecha de fin"
+            )
+
+        # Buscar todos los registros de áridos que coinciden con los criterios
+        registros = db.query(EntregaArido).filter(
+            EntregaArido.proyecto_id == proyecto_id,
+            EntregaArido.tipo_arido == data.tipo_arido,
+            EntregaArido.fecha_entrega >= datetime.combine(data.periodo_inicio, datetime.min.time()),
+            EntregaArido.fecha_entrega <= datetime.combine(data.periodo_fin, datetime.max.time())
+        ).all()
+
+        if not registros:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se encontraron registros de árido '{data.tipo_arido}' en el período especificado"
+            )
+
+        # Calcular estadísticas anteriores
+        registros_actualizados = len(registros)
+
+        # Calcular precio anterior promedio (solo de los registros que tienen precio)
+        precios_anteriores = [r.precio_unitario for r in registros if r.precio_unitario is not None]
+        precio_anterior = sum(precios_anteriores) / len(precios_anteriores) if precios_anteriores else 0.0
+
+        # Calcular importe anterior (suma de cantidad * precio_unitario)
+        importe_anterior = sum(
+            (r.cantidad * r.precio_unitario) if r.precio_unitario is not None else 0.0
+            for r in registros
+        )
+
+        # Actualizar precio_unitario de cada registro
+        for registro in registros:
+            registro.precio_unitario = data.nuevo_precio
+
+        # Calcular importe nuevo
+        importe_nuevo = sum(r.cantidad * data.nuevo_precio for r in registros)
+
+        # Calcular diferencia
+        diferencia = importe_nuevo - importe_anterior
+
+        # Guardar cambios
+        db.commit()
+
+        return ActualizarPrecioAridoResponse(
+            registros_actualizados=registros_actualizados,
+            precio_anterior=round(precio_anterior, 2),
+            precio_nuevo=round(data.nuevo_precio, 2),
+            importe_anterior=round(importe_anterior, 2),
+            importe_nuevo=round(importe_nuevo, 2),
+            diferencia=round(diferencia, 2)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al actualizar precio de áridos: {str(e)}"
+        )
+
+@router.put("/{proyecto_id}/maquinas/actualizar-tarifa", response_model=ActualizarTarifaMaquinaResponse)
+async def actualizar_tarifa_maquina(
+    proyecto_id: int,
+    data: ActualizarTarifaMaquinaRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Actualiza la tarifa por hora de todos los registros de horas
+    de una máquina específica en un período determinado.
+
+    Args:
+        proyecto_id: ID del proyecto
+        data: Datos de actualización (maquina_id, nueva_tarifa, periodo_inicio, periodo_fin)
+        db: Sesión de base de datos
+
+    Returns:
+        Resumen de la actualización con información de tarifas e importes
+
+    Raises:
+        HTTPException 404: Si el proyecto no existe
+        HTTPException 400: Si no hay registros que actualizar o la tarifa no es válida
+    """
+    try:
+        # Verificar que el proyecto existe
+        proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+        if not proyecto:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
+        # Validar nueva tarifa
+        if data.nueva_tarifa <= 0:
+            raise HTTPException(status_code=400, detail="La tarifa debe ser mayor a 0")
+
+        # Validar fechas
+        if data.periodo_inicio > data.periodo_fin:
+            raise HTTPException(
+                status_code=400,
+                detail="La fecha de inicio debe ser anterior a la fecha de fin"
+            )
+
+        # Buscar todos los registros de reportes laborales que coinciden con los criterios
+        registros = db.query(ReporteLaboral).filter(
+            ReporteLaboral.proyecto_id == proyecto_id,
+            ReporteLaboral.maquina_id == data.maquina_id,
+            ReporteLaboral.fecha_asignacion >= datetime.combine(data.periodo_inicio, datetime.min.time()),
+            ReporteLaboral.fecha_asignacion <= datetime.combine(data.periodo_fin, datetime.max.time())
+        ).all()
+
+        if not registros:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se encontraron registros de horas para la máquina {data.maquina_id} en el período especificado"
+            )
+
+        # Calcular estadísticas anteriores
+        registros_actualizados = len(registros)
+
+        # Calcular tarifa anterior promedio (solo de los registros que tienen tarifa)
+        tarifas_anteriores = [r.tarifa_hora for r in registros if r.tarifa_hora is not None]
+        tarifa_anterior = sum(tarifas_anteriores) / len(tarifas_anteriores) if tarifas_anteriores else 0.0
+
+        # Calcular importe anterior (suma de horas_turno * tarifa_hora)
+        importe_anterior = sum(
+            (r.horas_turno * r.tarifa_hora) if r.tarifa_hora is not None else 0.0
+            for r in registros
+        )
+
+        # Actualizar tarifa_hora de cada registro
+        for registro in registros:
+            registro.tarifa_hora = data.nueva_tarifa
+
+        # Calcular importe nuevo
+        importe_nuevo = sum(r.horas_turno * data.nueva_tarifa for r in registros)
+
+        # Calcular diferencia
+        diferencia = importe_nuevo - importe_anterior
+
+        # Guardar cambios
+        db.commit()
+
+        return ActualizarTarifaMaquinaResponse(
+            registros_actualizados=registros_actualizados,
+            tarifa_anterior=round(tarifa_anterior, 2),
+            tarifa_nueva=round(data.nueva_tarifa, 2),
+            importe_anterior=round(importe_anterior, 2),
+            importe_nuevo=round(importe_nuevo, 2),
+            diferencia=round(diferencia, 2)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al actualizar tarifa de máquina: {str(e)}"
+        )

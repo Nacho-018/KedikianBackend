@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Float, Boolean
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from sqlalchemy.sql import func
@@ -11,9 +11,11 @@ class ReporteLaboral(Base):
     proyecto_id = Column(Integer, ForeignKey("proyecto.id"))
     fecha_asignacion = Column(DateTime)
     horas_turno = Column(Integer)
-    
+    tarifa_hora = Column(Float, nullable=True)  # Tarifa por hora de la máquina
+
     # ✅ NUEVOS CAMPOS AGREGADOS
     horometro_inicial = Column(Float, nullable=True)  # Lectura inicial del horómetro
+    pagado = Column(Boolean, default=False, nullable=False)  # Estado de pago
 
 
     # Relaciones

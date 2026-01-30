@@ -394,7 +394,9 @@ class ReporteLaboralBase(BaseModel):
     proyecto_id: Optional[int] = Field(None, description="ID del proyecto asignado")  # ← Field para forzar inclusión
     fecha_asignacion: datetime
     horas_turno: int
+    tarifa_hora: Optional[float] = Field(None, description="Tarifa por hora de la máquina")
     horometro_inicial: Optional[float] = Field(None, description="Lectura inicial del horómetro")
+    pagado: Optional[bool] = False
 
 class ReporteLaboralCreate(ReporteLaboralBase):
     pass
@@ -418,7 +420,7 @@ class ReporteLaboralOut(ReporteLaboralBase):
         """Forzar inclusión de todos los campos, incluso si son None"""
         kwargs.setdefault('exclude_none', False)  # No excluir campos None
         return super().dict(**kwargs)
-    
+
     # ✅ ALTERNATIVA: Sobrescribir model_dump para Pydantic v2 (si usas v2)
     def model_dump(self, **kwargs):
         """Forzar inclusión de todos los campos para Pydantic v2"""
@@ -591,8 +593,10 @@ class EntregaAridoBase(BaseModel):
     tipo_arido: str
     nombre: Optional[str] = None
     cantidad: int
+    precio_unitario: Optional[float] = None
     fecha_entrega: datetime
     observaciones: Optional[str] = None
+    pagado: Optional[bool] = False
 
 class EntregaAridoCreate(EntregaAridoBase):
     pass
@@ -1003,7 +1007,7 @@ class ReporteCuentaCorrienteBase(BaseModel):
     importe_aridos: Optional[float] = 0.0
     importe_horas: Optional[float] = 0.0
     importe_total: Optional[float] = 0.0
-    estado: Optional[str] = "pendiente"  # "pendiente" o "pagado"
+    estado: Optional[str] = "pendiente"  # "pendiente", "parcial" o "pagado"
     fecha_generacion: datetime
     observaciones: Optional[str] = None
     numero_factura: Optional[str] = None
@@ -1072,3 +1076,83 @@ class TarifaMaquinaSchema(BaseModel):
     maquina_id: int
     maquina_nombre: str
     tarifa_hora: float
+
+# Schema para actualizar precio de áridos por período
+class ActualizarPrecioAridoRequest(BaseModel):
+    tipo_arido: str = Field(..., description="Tipo de árido a actualizar")
+    nuevo_precio: float = Field(..., gt=0, description="Nuevo precio unitario")
+    periodo_inicio: date = Field(..., description="Fecha de inicio del período")
+    periodo_fin: date = Field(..., description="Fecha de fin del período")
+
+class ActualizarPrecioAridoResponse(BaseModel):
+    registros_actualizados: int
+    precio_anterior: float
+    precio_nuevo: float
+    importe_anterior: float
+    importe_nuevo: float
+    diferencia: float
+
+# Schema para actualizar tarifa de máquinas por período
+class ActualizarTarifaMaquinaRequest(BaseModel):
+    maquina_id: int = Field(..., description="ID de la máquina")
+    nueva_tarifa: float = Field(..., gt=0, description="Nueva tarifa por hora")
+    periodo_inicio: date = Field(..., description="Fecha de inicio del período")
+    periodo_fin: date = Field(..., description="Fecha de fin del período")
+
+class ActualizarTarifaMaquinaResponse(BaseModel):
+    registros_actualizados: int
+    tarifa_anterior: float
+    tarifa_nueva: float
+    importe_anterior: float
+    importe_nuevo: float
+    diferencia: float
+
+# Schema para items individuales de áridos
+class ItemAridoDetalle(BaseModel):
+    id: int
+    tipo_arido: str
+    cantidad: float
+    precio_unitario: float
+    importe: float
+    pagado: bool
+    fecha: date
+
+    class Config:
+        from_attributes = True
+
+# Schema para items individuales de horas
+class ItemHoraDetalle(BaseModel):
+    id: int
+    maquina_id: int
+    maquina_nombre: str
+    total_horas: float
+    tarifa_hora: float
+    importe: float
+    pagado: bool
+    fecha: date
+    usuario_nombre: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# Schema para la respuesta del detalle del reporte
+class DetalleReporteResponse(BaseModel):
+    items_aridos: List[ItemAridoDetalle]
+    items_horas: List[ItemHoraDetalle]
+
+    class Config:
+        from_attributes = True
+
+# Schema para actualizar estado de pago de items
+class ItemPagoUpdate(BaseModel):
+    item_id: int
+    pagado: bool
+
+class ActualizarItemsPagoRequest(BaseModel):
+    items_aridos: List[ItemPagoUpdate] = []
+    items_horas: List[ItemPagoUpdate] = []
+
+class ActualizarItemsPagoResponse(BaseModel):
+    aridos_actualizados: int
+    horas_actualizadas: int
+    reporte: ReporteCuentaCorrienteOut
