@@ -1,4 +1,4 @@
-from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, ReporteLaboral, Maquina
+from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, ReporteLaboral, Maquina, ReporteItemArido, ReporteItemHora
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
@@ -12,7 +12,8 @@ from app.schemas.schemas import (
     ItemAridoDetalle,
     ItemHoraDetalle,
     ActualizarItemsPagoRequest,
-    ActualizarItemsPagoResponse
+    ActualizarItemsPagoResponse,
+    ReporteCuentaCorrienteConDetalleOut
 )
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -73,7 +74,9 @@ def get_resumen_proyecto(
     db: Session,
     proyecto_id: int,
     periodo_inicio: date,
-    periodo_fin: date
+    periodo_fin: date,
+    tipos_aridos: Optional[List[str]] = None,
+    maquinas_ids: Optional[List[int]] = None
 ) -> Optional[ResumenProyectoSchema]:
     """
     Obtiene el resumen de áridos y horas de un proyecto con sus precios calculados
@@ -81,6 +84,14 @@ def get_resumen_proyecto(
 
     IMPORTANTE: Lee los precios y tarifas desde la base de datos (precio_unitario y tarifa_hora)
     en lugar de usar valores predeterminados.
+
+    Args:
+        db: Sesión de base de datos
+        proyecto_id: ID del proyecto
+        periodo_inicio: Fecha de inicio del período
+        periodo_fin: Fecha de fin del período
+        tipos_aridos: Lista opcional de tipos de áridos a incluir (filtro)
+        maquinas_ids: Lista opcional de IDs de máquinas a incluir (filtro)
     """
     # Verificar que el proyecto existe
     proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
@@ -88,7 +99,7 @@ def get_resumen_proyecto(
         return None
 
     # Obtener entregas de áridos en el período con precio_unitario desde la BD
-    entregas_aridos = db.query(
+    query_aridos = db.query(
         EntregaArido.tipo_arido,
         func.sum(EntregaArido.cantidad).label('total_cantidad'),
         func.avg(EntregaArido.precio_unitario).label('precio_promedio')
@@ -96,7 +107,13 @@ def get_resumen_proyecto(
         EntregaArido.proyecto_id == proyecto_id,
         EntregaArido.fecha_entrega >= periodo_inicio,
         EntregaArido.fecha_entrega <= periodo_fin
-    ).group_by(EntregaArido.tipo_arido).all()
+    )
+
+    # Aplicar filtro de tipos de áridos si se especifica
+    if tipos_aridos and len(tipos_aridos) > 0:
+        query_aridos = query_aridos.filter(EntregaArido.tipo_arido.in_(tipos_aridos))
+
+    entregas_aridos = query_aridos.group_by(EntregaArido.tipo_arido).all()
 
     # Calcular detalles de áridos con precios REALES de la BD
     detalles_aridos = []
@@ -119,7 +136,7 @@ def get_resumen_proyecto(
         total_importe_aridos += importe
 
     # Obtener horas de máquinas en el período con tarifa_hora desde la BD
-    horas_maquinas = db.query(
+    query_horas = db.query(
         Maquina.id,
         Maquina.nombre,
         func.sum(ReporteLaboral.horas_turno).label('total_horas'),
@@ -130,7 +147,13 @@ def get_resumen_proyecto(
         ReporteLaboral.proyecto_id == proyecto_id,
         ReporteLaboral.fecha_asignacion >= periodo_inicio,
         ReporteLaboral.fecha_asignacion <= periodo_fin
-    ).group_by(Maquina.id, Maquina.nombre).all()
+    )
+
+    # Aplicar filtro de máquinas si se especifica
+    if maquinas_ids and len(maquinas_ids) > 0:
+        query_horas = query_horas.filter(Maquina.id.in_(maquinas_ids))
+
+    horas_maquinas = query_horas.group_by(Maquina.id, Maquina.nombre).all()
 
     # Calcular detalles de horas con tarifas REALES de la BD
     detalles_horas = []
@@ -191,21 +214,64 @@ def get_reporte(db: Session, reporte_id: int) -> Optional[ReporteCuentaCorriente
         return ReporteCuentaCorrienteOut.model_validate(reporte)
     return None
 
-def create_reporte(db: Session, reporte_data: ReporteCuentaCorrienteCreate) -> ReporteCuentaCorrienteOut:
+def create_reporte(db: Session, reporte_data: ReporteCuentaCorrienteCreate):
     """
     Crea un nuevo reporte de cuenta corriente calculando automáticamente
-    los totales e importes del período especificado
+    los totales e importes del período especificado.
+
+    Soporta selección de items específicos mediante:
+    - aridos_seleccionados: Lista de tipos de áridos a incluir
+    - maquinas_seleccionadas: Lista de IDs de máquinas a incluir
+
+    Si no se especifican, se incluyen todos los items del período.
     """
-    # Obtener resumen del proyecto para el período
+    # Validar que el proyecto existe
+    proyecto = db.query(Proyecto).filter(Proyecto.id == reporte_data.proyecto_id).first()
+    if not proyecto:
+        raise ValueError(f"No se encontró el proyecto con ID {reporte_data.proyecto_id}")
+
+    # Validar tipos de áridos si se especificaron
+    if reporte_data.aridos_seleccionados is not None and len(reporte_data.aridos_seleccionados) > 0:
+        tipos_existentes = db.query(EntregaArido.tipo_arido).filter(
+            EntregaArido.proyecto_id == reporte_data.proyecto_id,
+            EntregaArido.fecha_entrega >= reporte_data.periodo_inicio,
+            EntregaArido.fecha_entrega <= reporte_data.periodo_fin
+        ).distinct().all()
+        tipos_existentes = [t[0] for t in tipos_existentes]
+
+        tipos_invalidos = [t for t in reporte_data.aridos_seleccionados if t not in tipos_existentes]
+        if tipos_invalidos:
+            raise ValueError(f"Tipos de áridos no encontrados en el período: {', '.join(tipos_invalidos)}")
+
+    # Validar máquinas si se especificaron
+    if reporte_data.maquinas_seleccionadas is not None and len(reporte_data.maquinas_seleccionadas) > 0:
+        maquinas_existentes = db.query(ReporteLaboral.maquina_id).filter(
+            ReporteLaboral.proyecto_id == reporte_data.proyecto_id,
+            ReporteLaboral.fecha_asignacion >= reporte_data.periodo_inicio,
+            ReporteLaboral.fecha_asignacion <= reporte_data.periodo_fin
+        ).distinct().all()
+        maquinas_existentes = [m[0] for m in maquinas_existentes]
+
+        maquinas_invalidas = [m for m in reporte_data.maquinas_seleccionadas if m not in maquinas_existentes]
+        if maquinas_invalidas:
+            raise ValueError(f"Máquinas no encontradas en el período: {', '.join(map(str, maquinas_invalidas))}")
+
+    # Obtener resumen del proyecto para el período con filtros opcionales
     resumen = get_resumen_proyecto(
         db,
         reporte_data.proyecto_id,
         reporte_data.periodo_inicio,
-        reporte_data.periodo_fin
+        reporte_data.periodo_fin,
+        tipos_aridos=reporte_data.aridos_seleccionados,
+        maquinas_ids=reporte_data.maquinas_seleccionadas
     )
 
     if not resumen:
         raise ValueError(f"No se encontró el proyecto con ID {reporte_data.proyecto_id}")
+
+    # Validar que haya al menos un item para generar el reporte
+    if resumen.total_aridos_m3 == 0 and resumen.total_horas == 0:
+        raise ValueError("No se puede generar un reporte sin items. Debe seleccionar al menos un árido o máquina.")
 
     # Crear el reporte con los datos calculados
     nuevo_reporte = ReporteCuentaCorriente(
@@ -226,7 +292,70 @@ def create_reporte(db: Session, reporte_data: ReporteCuentaCorrienteCreate) -> R
     db.commit()
     db.refresh(nuevo_reporte)
 
-    return ReporteCuentaCorrienteOut.model_validate(nuevo_reporte)
+    # Obtener los registros de áridos que pertenecen a este reporte
+    query_aridos = db.query(EntregaArido).filter(
+        EntregaArido.proyecto_id == reporte_data.proyecto_id,
+        EntregaArido.fecha_entrega >= reporte_data.periodo_inicio,
+        EntregaArido.fecha_entrega <= reporte_data.periodo_fin
+    )
+    if reporte_data.aridos_seleccionados and len(reporte_data.aridos_seleccionados) > 0:
+        query_aridos = query_aridos.filter(EntregaArido.tipo_arido.in_(reporte_data.aridos_seleccionados))
+
+    entregas_aridos = query_aridos.all()
+
+    # Guardar relaciones de áridos
+    for entrega in entregas_aridos:
+        item_rel = ReporteItemArido(
+            reporte_id=nuevo_reporte.id,
+            entrega_arido_id=entrega.id
+        )
+        db.add(item_rel)
+
+    # Obtener los reportes laborales que pertenecen a este reporte
+    query_horas = db.query(ReporteLaboral).filter(
+        ReporteLaboral.proyecto_id == reporte_data.proyecto_id,
+        ReporteLaboral.fecha_asignacion >= reporte_data.periodo_inicio,
+        ReporteLaboral.fecha_asignacion <= reporte_data.periodo_fin
+    )
+    if reporte_data.maquinas_seleccionadas and len(reporte_data.maquinas_seleccionadas) > 0:
+        query_horas = query_horas.filter(ReporteLaboral.maquina_id.in_(reporte_data.maquinas_seleccionadas))
+
+    reportes_horas = query_horas.all()
+
+    # Guardar relaciones de horas
+    for reporte_hora in reportes_horas:
+        item_rel = ReporteItemHora(
+            reporte_id=nuevo_reporte.id,
+            reporte_laboral_id=reporte_hora.id
+        )
+        db.add(item_rel)
+
+    # Commit de las relaciones
+    db.commit()
+
+    # Obtener items individuales filtrados para el response
+    items_aridos = _get_items_aridos_filtrados(
+        db,
+        reporte_data.proyecto_id,
+        reporte_data.periodo_inicio,
+        reporte_data.periodo_fin,
+        reporte_data.aridos_seleccionados
+    )
+
+    items_horas = _get_items_horas_filtrados(
+        db,
+        reporte_data.proyecto_id,
+        reporte_data.periodo_inicio,
+        reporte_data.periodo_fin,
+        reporte_data.maquinas_seleccionadas
+    )
+
+    # Construir response con items incluidos
+    return ReporteCuentaCorrienteConDetalleOut(
+        **ReporteCuentaCorrienteOut.model_validate(nuevo_reporte).model_dump(),
+        items_aridos=items_aridos,
+        items_horas=items_horas
+    )
 
 def update_reporte_estado(
     db: Session,
@@ -291,12 +420,100 @@ def get_tarifa_maquina_por_id(db: Session, maquina_id: int) -> Optional[TarifaMa
         tarifa_hora=tarifa
     )
 
+def _get_items_aridos_filtrados(
+    db: Session,
+    proyecto_id: int,
+    periodo_inicio: date,
+    periodo_fin: date,
+    tipos_aridos: Optional[List[str]] = None
+) -> List[ItemAridoDetalle]:
+    """
+    Obtiene los items individuales de áridos con filtros opcionales.
+    Función auxiliar privada para create_reporte.
+    """
+    query = db.query(EntregaArido).filter(
+        EntregaArido.proyecto_id == proyecto_id,
+        EntregaArido.fecha_entrega >= periodo_inicio,
+        EntregaArido.fecha_entrega <= periodo_fin
+    )
+
+    # Aplicar filtro de tipos si se especifica
+    if tipos_aridos and len(tipos_aridos) > 0:
+        query = query.filter(EntregaArido.tipo_arido.in_(tipos_aridos))
+
+    entregas_aridos = query.all()
+
+    items_aridos = []
+    for arido in entregas_aridos:
+        precio_unitario = arido.precio_unitario if arido.precio_unitario is not None else get_precio_arido(arido.tipo_arido)
+        importe = arido.cantidad * precio_unitario
+
+        items_aridos.append(ItemAridoDetalle(
+            id=arido.id,
+            tipo_arido=arido.tipo_arido,
+            cantidad=arido.cantidad,
+            precio_unitario=precio_unitario,
+            importe=importe,
+            pagado=arido.pagado if arido.pagado is not None else False,
+            fecha=arido.fecha_entrega.date()
+        ))
+
+    return items_aridos
+
+def _get_items_horas_filtrados(
+    db: Session,
+    proyecto_id: int,
+    periodo_inicio: date,
+    periodo_fin: date,
+    maquinas_ids: Optional[List[int]] = None
+) -> List[ItemHoraDetalle]:
+    """
+    Obtiene los items individuales de horas con filtros opcionales.
+    Función auxiliar privada para create_reporte.
+    """
+    query = db.query(ReporteLaboral).options(
+        joinedload(ReporteLaboral.maquina),
+        joinedload(ReporteLaboral.usuario)
+    ).filter(
+        ReporteLaboral.proyecto_id == proyecto_id,
+        ReporteLaboral.fecha_asignacion >= periodo_inicio,
+        ReporteLaboral.fecha_asignacion <= periodo_fin
+    )
+
+    # Aplicar filtro de máquinas si se especifica
+    if maquinas_ids and len(maquinas_ids) > 0:
+        query = query.filter(ReporteLaboral.maquina_id.in_(maquinas_ids))
+
+    reportes_horas = query.all()
+
+    items_horas = []
+    for reporte_hora in reportes_horas:
+        tarifa_hora = reporte_hora.tarifa_hora if reporte_hora.tarifa_hora is not None else get_tarifa_maquina(reporte_hora.maquina.nombre)
+        importe = reporte_hora.horas_turno * tarifa_hora
+
+        items_horas.append(ItemHoraDetalle(
+            id=reporte_hora.id,
+            maquina_id=reporte_hora.maquina_id,
+            maquina_nombre=reporte_hora.maquina.nombre,
+            total_horas=reporte_hora.horas_turno,
+            tarifa_hora=tarifa_hora,
+            importe=importe,
+            pagado=reporte_hora.pagado if reporte_hora.pagado is not None else False,
+            fecha=reporte_hora.fecha_asignacion.date(),
+            usuario_nombre=reporte_hora.usuario.nombre if reporte_hora.usuario else None
+        ))
+
+    return items_horas
+
 def get_detalle_reporte(
     db: Session,
     reporte_id: int
 ) -> Optional[DetalleReporteResponse]:
     """
-    Obtiene el detalle de items individuales de áridos y horas de un reporte
+    Obtiene el detalle de items individuales de áridos y horas de un reporte.
+
+    IMPORTANTE: Lee los items desde las tablas relacionales (reporte_items_aridos, reporte_items_horas)
+    para obtener SOLO los items que fueron seleccionados al crear el reporte.
     """
     # Obtener el reporte
     reporte = db.query(ReporteCuentaCorriente).filter(
@@ -306,12 +523,17 @@ def get_detalle_reporte(
     if not reporte:
         return None
 
-    # Obtener items individuales de áridos en el período
-    entregas_aridos = db.query(EntregaArido).filter(
-        EntregaArido.proyecto_id == reporte.proyecto_id,
-        EntregaArido.fecha_entrega >= reporte.periodo_inicio,
-        EntregaArido.fecha_entrega <= reporte.periodo_fin
+    # Obtener items de áridos desde la tabla relacional
+    items_aridos_rel = db.query(ReporteItemArido).filter(
+        ReporteItemArido.reporte_id == reporte_id
     ).all()
+
+    # Obtener las entregas de áridos correspondientes
+    entregas_aridos = []
+    for item_rel in items_aridos_rel:
+        arido = db.query(EntregaArido).filter(EntregaArido.id == item_rel.entrega_arido_id).first()
+        if arido:
+            entregas_aridos.append(arido)
 
     # Convertir áridos a ItemAridoDetalle
     items_aridos = []
@@ -329,15 +551,20 @@ def get_detalle_reporte(
             fecha=arido.fecha_entrega.date()
         ))
 
-    # Obtener items individuales de horas en el período con información de máquina y usuario
-    reportes_horas = db.query(ReporteLaboral).options(
-        joinedload(ReporteLaboral.maquina),
-        joinedload(ReporteLaboral.usuario)
-    ).filter(
-        ReporteLaboral.proyecto_id == reporte.proyecto_id,
-        ReporteLaboral.fecha_asignacion >= reporte.periodo_inicio,
-        ReporteLaboral.fecha_asignacion <= reporte.periodo_fin
+    # Obtener items de horas desde la tabla relacional
+    items_horas_rel = db.query(ReporteItemHora).filter(
+        ReporteItemHora.reporte_id == reporte_id
     ).all()
+
+    # Obtener los reportes laborales correspondientes
+    reportes_horas = []
+    for item_rel in items_horas_rel:
+        reporte_hora = db.query(ReporteLaboral).options(
+            joinedload(ReporteLaboral.maquina),
+            joinedload(ReporteLaboral.usuario)
+        ).filter(ReporteLaboral.id == item_rel.reporte_laboral_id).first()
+        if reporte_hora:
+            reportes_horas.append(reporte_hora)
 
     # Convertir horas a ItemHoraDetalle
     items_horas = []
@@ -415,19 +642,27 @@ def actualizar_items_pago(
     db.commit()
 
     # ============= CALCULAR ESTADO GENERAL DEL REPORTE =============
-    # Obtener TODOS los items de áridos del período del reporte
-    todos_aridos = db.query(EntregaArido).filter(
-        EntregaArido.proyecto_id == reporte.proyecto_id,
-        EntregaArido.fecha_entrega >= reporte.periodo_inicio,
-        EntregaArido.fecha_entrega <= reporte.periodo_fin
+    # Obtener SOLO los items de áridos que pertenecen a este reporte (desde tabla relacional)
+    items_aridos_rel = db.query(ReporteItemArido).filter(
+        ReporteItemArido.reporte_id == reporte_id
     ).all()
 
-    # Obtener TODOS los items de horas del período del reporte
-    todos_reportes_horas = db.query(ReporteLaboral).filter(
-        ReporteLaboral.proyecto_id == reporte.proyecto_id,
-        ReporteLaboral.fecha_asignacion >= reporte.periodo_inicio,
-        ReporteLaboral.fecha_asignacion <= reporte.periodo_fin
+    todos_aridos = []
+    for item_rel in items_aridos_rel:
+        arido = db.query(EntregaArido).filter(EntregaArido.id == item_rel.entrega_arido_id).first()
+        if arido:
+            todos_aridos.append(arido)
+
+    # Obtener SOLO los items de horas que pertenecen a este reporte (desde tabla relacional)
+    items_horas_rel = db.query(ReporteItemHora).filter(
+        ReporteItemHora.reporte_id == reporte_id
     ).all()
+
+    todos_reportes_horas = []
+    for item_rel in items_horas_rel:
+        reporte_hora = db.query(ReporteLaboral).filter(ReporteLaboral.id == item_rel.reporte_laboral_id).first()
+        if reporte_hora:
+            todos_reportes_horas.append(reporte_hora)
 
     # Calcular totales
     total_items = len(todos_aridos) + len(todos_reportes_horas)

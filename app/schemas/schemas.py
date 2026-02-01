@@ -1018,6 +1018,8 @@ class ReporteCuentaCorrienteCreate(BaseModel):
     periodo_inicio: date
     periodo_fin: date
     observaciones: Optional[str] = None
+    aridos_seleccionados: Optional[List[str]] = None  # Tipos de áridos a incluir
+    maquinas_seleccionadas: Optional[List[int]] = None  # IDs de máquinas a incluir
 
 class ReporteCuentaCorrienteUpdate(BaseModel):
     estado: Optional[str] = None
@@ -1156,3 +1158,9 @@ class ActualizarItemsPagoResponse(BaseModel):
     aridos_actualizados: int
     horas_actualizadas: int
     reporte: ReporteCuentaCorrienteOut
+
+# Schema para response de creación de reporte con items incluidos
+class ReporteCuentaCorrienteConDetalleOut(ReporteCuentaCorrienteOut):
+    """Response que incluye los items individuales del reporte"""
+    items_aridos: List[ItemAridoDetalle] = []
+    items_horas: List[ItemHoraDetalle] = []

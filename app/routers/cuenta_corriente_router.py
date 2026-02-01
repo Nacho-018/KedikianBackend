@@ -17,7 +17,8 @@ from app.schemas.schemas import (
     ActualizarTarifaMaquinaResponse,
     DetalleReporteResponse,
     ActualizarItemsPagoRequest,
-    ActualizarItemsPagoResponse
+    ActualizarItemsPagoResponse,
+    ReporteCuentaCorrienteConDetalleOut
 )
 from sqlalchemy.orm import Session
 from app.services import cuenta_corriente_service
@@ -179,7 +180,7 @@ def actualizar_items_pago(
 
     return resultado
 
-@router.post("/reportes", response_model=ReporteCuentaCorrienteOut, status_code=201)
+@router.post("/reportes", response_model=ReporteCuentaCorrienteConDetalleOut, status_code=201)
 def create_reporte(
     reporte_data: ReporteCuentaCorrienteCreate,
     session: Session = Depends(get_db)
@@ -191,6 +192,12 @@ def create_reporte(
     - Total de áridos entregados (m³)
     - Total de horas de máquinas
     - Importes según precios y tarifas configurados
+
+    Soporta selección de items específicos mediante:
+    - aridos_seleccionados: Lista de tipos de áridos a incluir (opcional)
+    - maquinas_seleccionadas: Lista de IDs de máquinas a incluir (opcional)
+
+    Si no se especifican, se incluyen todos los items del período.
     """
     try:
         return cuenta_corriente_service.create_reporte(session, reporte_data)

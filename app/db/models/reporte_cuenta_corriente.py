@@ -25,6 +25,8 @@ class ReporteCuentaCorriente(Base):
 
     # Relaciones
     proyecto = relationship("Proyecto", back_populates="reportes_cuenta_corriente")
+    items_aridos_rel = relationship("ReporteItemArido", back_populates="reporte", cascade="all, delete-orphan")
+    items_horas_rel = relationship("ReporteItemHora", back_populates="reporte", cascade="all, delete-orphan")
 
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())

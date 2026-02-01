@@ -17,3 +17,4 @@ from .jornada_laboral import JornadaLaboral
 from .horometro_historial import HorometroHistorial
 from .nota_maquina import NotaMaquina
 from .reporte_cuenta_corriente import ReporteCuentaCorriente
+from .reporte_items import ReporteItemArido, ReporteItemHora
