@@ -28,8 +28,9 @@ import pandas as pd
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.units import inch
+import os
 
 router = APIRouter(
     prefix="/cuenta-corriente",
@@ -387,6 +388,19 @@ def exportar_reporte_pdf(
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
+
+    # Logo en el encabezado (si existe)
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'static', 'assets', 'logo-kedikian.png')
+    if os.path.exists(logo_path):
+        try:
+            # El logo es casi cuadrado (536x528), mantener proporción 1:1
+            logo = Image(logo_path, width=120, height=120)
+            logo.hAlign = 'CENTER'
+            elements.append(logo)
+            elements.append(Spacer(1, 0.2*inch))
+        except Exception as e:
+            # Si hay error al cargar la imagen, continuar sin logo
+            print(f"Advertencia: No se pudo cargar el logo: {e}")
 
     # Título
     title = Paragraph(f"<b>REPORTE DE CUENTA CORRIENTE</b>", styles['Title'])
