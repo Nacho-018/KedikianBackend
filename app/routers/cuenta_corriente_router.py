@@ -18,7 +18,10 @@ from app.schemas.schemas import (
     DetalleReporteResponse,
     ActualizarItemsPagoRequest,
     ActualizarItemsPagoResponse,
-    ReporteCuentaCorrienteConDetalleOut
+    ReporteCuentaCorrienteConDetalleOut,
+    PagoReporteCreate,
+    PagoReporteOut,
+    RegistrarPagoResponse
 )
 from sqlalchemy.orm import Session
 from app.services import cuenta_corriente_service
@@ -256,6 +259,73 @@ def delete_reporte(
         status_code=204,
         content={"message": "Reporte eliminado exitosamente"}
     )
+
+# ============= Endpoints de Pagos de Reportes =============
+
+@router.post("/reportes/{reporte_id}/pagos", response_model=RegistrarPagoResponse, status_code=201)
+def registrar_pago(
+    reporte_id: int,
+    pago_data: PagoReporteCreate,
+    session: Session = Depends(get_db)
+):
+    """
+    Registra un pago para un reporte de cuenta corriente.
+
+    Al registrar el pago, el sistema:
+    1. Inserta el pago en la base de datos
+    2. Calcula el total pagado sumando todos los pagos del reporte
+    3. Actualiza automáticamente el estado del reporte:
+       - PAGADO: si total_pagado >= importe_total
+       - PARCIAL: si total_pagado > 0 pero < importe_total
+       - PENDIENTE: si total_pagado = 0
+    4. Retorna el pago creado junto con el estado actualizado del reporte
+
+    Args:
+        reporte_id: ID del reporte
+        pago_data: Datos del pago (monto, fecha, observaciones)
+
+    Returns:
+        Pago creado, reporte actualizado, total pagado y saldo pendiente
+    """
+    resultado = cuenta_corriente_service.registrar_pago(
+        session,
+        reporte_id,
+        pago_data
+    )
+
+    if not resultado:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Reporte con ID {reporte_id} no encontrado"
+        )
+
+    return resultado
+
+@router.get("/reportes/{reporte_id}/pagos", response_model=List[PagoReporteOut])
+def listar_pagos(
+    reporte_id: int,
+    session: Session = Depends(get_db)
+):
+    """
+    Lista todos los pagos asociados a un reporte de cuenta corriente.
+
+    Los pagos se retornan ordenados por fecha de registro (más recientes primero).
+
+    Args:
+        reporte_id: ID del reporte
+
+    Returns:
+        Lista de pagos del reporte
+    """
+    pagos = cuenta_corriente_service.listar_pagos_reporte(session, reporte_id)
+
+    if pagos is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Reporte con ID {reporte_id} no encontrado"
+        )
+
+    return pagos
 
 # ============= Endpoints de Exportación =============
 

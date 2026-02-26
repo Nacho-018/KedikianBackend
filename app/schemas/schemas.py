@@ -1164,3 +1164,105 @@ class ReporteCuentaCorrienteConDetalleOut(ReporteCuentaCorrienteOut):
     """Response que incluye los items individuales del reporte"""
     items_aridos: List[ItemAridoDetalle] = []
     items_horas: List[ItemHoraDetalle] = []
+
+# ============= CLIENTES =============
+class ClienteCreate(BaseModel):
+    nombre: str = Field(..., min_length=1, description="Nombre del cliente")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+
+class ClienteOut(BaseModel):
+    id: int
+    nombre: str
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    direccion: Optional[str] = None
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# ============= COTIZACIONES =============
+class CotizacionItemCreate(BaseModel):
+    nombre_servicio: str = Field(..., description="Nombre del servicio o producto")
+    unidad: str = Field(..., description="Unidad de medida (m³, hora, etc.)")
+    cantidad: float = Field(..., gt=0, description="Cantidad")
+    precio_unitario: float = Field(..., gt=0, description="Precio unitario editable")
+
+class CotizacionItemOut(BaseModel):
+    id: int
+    cotizacion_id: int
+    nombre_servicio: str
+    unidad: str
+    cantidad: float
+    precio_unitario: float
+    subtotal: float
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class CotizacionCreate(BaseModel):
+    cliente_id: int = Field(..., description="ID del cliente")
+    fecha_validez: Optional[date] = None
+    observaciones: Optional[str] = None
+    items: List[CotizacionItemCreate] = Field(..., min_length=1, description="Lista de items de la cotización")
+
+class CotizacionUpdate(BaseModel):
+    estado: Optional[str] = Field(None, description="Estado: borrador, enviada, aprobada")
+    observaciones: Optional[str] = None
+    fecha_validez: Optional[date] = None
+
+class CotizacionOut(BaseModel):
+    id: int
+    cliente_id: int
+    cliente: ClienteOut
+    fecha_creacion: datetime
+    fecha_validez: Optional[date] = None
+    estado: str
+    observaciones: Optional[str] = None
+    importe_total: float
+    items: List[CotizacionItemOut] = []
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ServicioPredefinido(BaseModel):
+    """Servicio con precio predefinido (áridos o máquinas)"""
+    nombre: str
+    precio_por_defecto: float
+    unidad: str
+    categoria: str  # "arido" o "maquina"
+
+class ServiciosPredefinidosOut(BaseModel):
+    """Lista de servicios disponibles con precios predefinidos"""
+    servicios: List[ServicioPredefinido]
+
+# ============= PAGOS DE REPORTES =============
+class PagoReporteCreate(BaseModel):
+    monto: float = Field(..., gt=0, description="Monto del pago")
+    fecha: date = Field(..., description="Fecha del pago")
+    observaciones: Optional[str] = None
+
+class PagoReporteOut(BaseModel):
+    id: int
+    reporte_id: int
+    monto: float
+    fecha: date
+    observaciones: Optional[str] = None
+    fecha_registro: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class RegistrarPagoResponse(BaseModel):
+    """Response al registrar un pago con estado actualizado del reporte"""
+    pago: PagoReporteOut
+    reporte_actualizado: ReporteCuentaCorrienteOut
+    total_pagado: float
+    saldo_pendiente: float

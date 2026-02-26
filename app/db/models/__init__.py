@@ -18,3 +18,6 @@ from .horometro_historial import HorometroHistorial
 from .nota_maquina import NotaMaquina
 from .reporte_cuenta_corriente import ReporteCuentaCorriente
 from .reporte_items import ReporteItemArido, ReporteItemHora
+from .pago_reporte import PagoReporte
+from .cliente import Cliente
+from .cotizacion import Cotizacion, CotizacionItem

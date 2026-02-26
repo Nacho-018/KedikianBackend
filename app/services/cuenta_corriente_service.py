@@ -1,4 +1,4 @@
-from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, ReporteLaboral, Maquina, ReporteItemArido, ReporteItemHora
+from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, ReporteLaboral, Maquina, ReporteItemArido, ReporteItemHora, PagoReporte
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
@@ -13,7 +13,10 @@ from app.schemas.schemas import (
     ItemHoraDetalle,
     ActualizarItemsPagoRequest,
     ActualizarItemsPagoResponse,
-    ReporteCuentaCorrienteConDetalleOut
+    ReporteCuentaCorrienteConDetalleOut,
+    PagoReporteCreate,
+    PagoReporteOut,
+    RegistrarPagoResponse
 )
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -696,3 +699,105 @@ def actualizar_items_pago(
         horas_actualizadas=horas_actualizadas,
         reporte=ReporteCuentaCorrienteOut.model_validate(reporte)
     )
+
+def registrar_pago(
+    db: Session,
+    reporte_id: int,
+    pago_data: PagoReporteCreate
+) -> Optional[RegistrarPagoResponse]:
+    """
+    Registra un pago para un reporte y actualiza automáticamente el estado del reporte.
+
+    Lógica de actualización de estado:
+    - Si total_pagado >= importe_total → estado = PAGADO
+    - Si total_pagado > 0 → estado = PARCIAL
+    - Si total_pagado = 0 → estado = PENDIENTE
+
+    Args:
+        db: Sesión de base de datos
+        reporte_id: ID del reporte
+        pago_data: Datos del pago a crear
+
+    Returns:
+        Respuesta con el pago creado, reporte actualizado, total pagado y saldo pendiente
+    """
+    # Verificar que el reporte existe
+    reporte = db.query(ReporteCuentaCorriente).filter(
+        ReporteCuentaCorriente.id == reporte_id
+    ).first()
+
+    if not reporte:
+        return None
+
+    # Crear el nuevo pago
+    nuevo_pago = PagoReporte(
+        reporte_id=reporte_id,
+        monto=Decimal(str(pago_data.monto)),
+        fecha=pago_data.fecha,
+        observaciones=pago_data.observaciones
+    )
+
+    db.add(nuevo_pago)
+    db.flush()  # Para obtener el ID sin hacer commit todavía
+
+    # Calcular total pagado (sumar todos los pagos del reporte)
+    total_pagado = db.query(func.sum(PagoReporte.monto)).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).scalar() or Decimal('0.0')
+
+    # Actualizar estado del reporte según el total pagado
+    importe_total = reporte.importe_total or Decimal('0.0')
+
+    if total_pagado >= importe_total:
+        reporte.estado = "pagado"
+        # Si el reporte se marca como pagado y no tiene fecha_pago, asignarla
+        if not reporte.fecha_pago:
+            reporte.fecha_pago = pago_data.fecha
+    elif total_pagado > 0:
+        reporte.estado = "parcial"
+    else:
+        reporte.estado = "pendiente"
+
+    # Guardar cambios
+    db.commit()
+    db.refresh(nuevo_pago)
+    db.refresh(reporte)
+
+    # Calcular saldo pendiente
+    saldo_pendiente = float(importe_total - total_pagado)
+
+    return RegistrarPagoResponse(
+        pago=PagoReporteOut.model_validate(nuevo_pago),
+        reporte_actualizado=ReporteCuentaCorrienteOut.model_validate(reporte),
+        total_pagado=float(total_pagado),
+        saldo_pendiente=saldo_pendiente
+    )
+
+def listar_pagos_reporte(
+    db: Session,
+    reporte_id: int
+) -> Optional[List[PagoReporteOut]]:
+    """
+    Lista todos los pagos asociados a un reporte específico.
+
+    Args:
+        db: Sesión de base de datos
+        reporte_id: ID del reporte
+
+    Returns:
+        Lista de pagos del reporte ordenados por fecha de registro (más recientes primero)
+    """
+    # Verificar que el reporte existe
+    reporte = db.query(ReporteCuentaCorriente).filter(
+        ReporteCuentaCorriente.id == reporte_id
+    ).first()
+
+    if not reporte:
+        return None
+
+    # Obtener todos los pagos del reporte
+    pagos = db.query(PagoReporte).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).order_by(PagoReporte.fecha_registro.desc()).all()
+
+    return [PagoReporteOut.model_validate(p) for p in pagos]

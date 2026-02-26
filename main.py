@@ -28,7 +28,8 @@ from app.routers import (
     aridos_router,
     mantenimiento_router,
     jornada_laboral_router,
-    cuenta_corriente_router
+    cuenta_corriente_router,
+    cotizacion_router
 )
 
 # ✅ NUEVO: Importar scheduler
@@ -149,6 +150,7 @@ app.include_router(aridos_router.router, prefix="/v1")
 app.include_router(mantenimiento_router.router, prefix="/v1")
 app.include_router(jornada_laboral_router.router, prefix="/v1")
 app.include_router(cuenta_corriente_router.router, prefix="/v1")
+app.include_router(cotizacion_router.router, prefix="/v1")
 
 # Debug al final del archivo, después de incluir routers
 def debug_routes():
