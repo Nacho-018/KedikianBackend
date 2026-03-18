@@ -2,6 +2,7 @@ from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, Report
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
+    ReporteCuentaCorrientePatchRequest,
     ReporteCuentaCorrienteOut,
     ResumenProyectoSchema,
     DetalleAridoConPrecio,
@@ -400,6 +401,67 @@ def delete_reporte(db: Session, reporte_id: int) -> bool:
     db.delete(reporte)
     db.commit()
     return True
+
+def actualizar_reporte(
+    db: Session,
+    reporte_id: int,
+    datos_actualizacion
+) -> Optional['ReporteCuentaCorrienteOut']:
+    """
+    Actualiza campos editables de un reporte de cuenta corriente.
+
+    Solo permite actualizar:
+    - observaciones
+    - numero_factura
+    - fecha_pago (con validación de que sea >= fecha_generacion)
+
+    Args:
+        db: Sesión de base de datos
+        reporte_id: ID del reporte a actualizar
+        datos_actualizacion: Datos a actualizar (ReporteCuentaCorrientePatchRequest)
+
+    Returns:
+        Reporte actualizado o None si no existe
+
+    Raises:
+        ValueError: Si la fecha_pago es anterior a la fecha_generacion
+    """
+    # Buscar el reporte
+    reporte = db.query(ReporteCuentaCorriente).filter(
+        ReporteCuentaCorriente.id == reporte_id
+    ).first()
+
+    if not reporte:
+        return None
+
+    # Validar fecha_pago si se proporciona
+    if datos_actualizacion.fecha_pago:
+        fecha_pago_dt = datetime.strptime(datos_actualizacion.fecha_pago, '%Y-%m-%d').date()
+        fecha_generacion_dt = reporte.fecha_generacion.date()
+
+        if fecha_pago_dt < fecha_generacion_dt:
+            raise ValueError(
+                "La fecha de pago no puede ser anterior a la fecha de generación del reporte"
+            )
+
+        reporte.fecha_pago = fecha_pago_dt
+
+    # Actualizar solo los campos proporcionados
+    if datos_actualizacion.observaciones is not None:
+        reporte.observaciones = datos_actualizacion.observaciones
+
+    if datos_actualizacion.numero_factura is not None:
+        reporte.numero_factura = datos_actualizacion.numero_factura
+
+    # Actualizar timestamp
+    reporte.updated = datetime.now()
+
+    # Guardar en base de datos
+    db.commit()
+    db.refresh(reporte)
+
+    # Retornar reporte actualizado
+    return ReporteCuentaCorrienteOut.model_validate(reporte)
 
 def get_todos_precios_aridos() -> List[PrecioAridoSchema]:
     """Obtiene todos los precios de áridos disponibles"""

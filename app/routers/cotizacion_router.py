@@ -47,10 +47,15 @@ def create_cliente(
     """
     Crea un nuevo cliente.
     El nombre es obligatorio, los demás campos son opcionales.
+    Valida que no exista un cliente duplicado.
     """
     try:
         return cotizacion_service.create_cliente(session, cliente_data)
+    except ValueError as e:
+        # Error de validación (cliente duplicado)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Otros errores
         raise HTTPException(status_code=500, detail=f"Error al crear cliente: {str(e)}")
 
 # ============= Endpoints de Servicios Predefinidos =============

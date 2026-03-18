@@ -1027,6 +1027,22 @@ class ReporteCuentaCorrienteUpdate(BaseModel):
     numero_factura: Optional[str] = None
     fecha_pago: Optional[date] = None
 
+class ReporteCuentaCorrientePatchRequest(BaseModel):
+    """Schema para editar campos específicos de un reporte (PATCH endpoint)"""
+    observaciones: Optional[str] = None
+    numero_factura: Optional[str] = None
+    fecha_pago: Optional[str] = None  # YYYY-MM-DD format
+
+    @field_validator('fecha_pago')
+    @classmethod
+    def validar_fecha_pago(cls, v):
+        if v:
+            try:
+                datetime.strptime(v, '%Y-%m-%d')
+            except ValueError:
+                raise ValueError('Formato de fecha inválido. Use YYYY-MM-DD')
+        return v
+
 class ReporteCuentaCorrienteOut(ReporteCuentaCorrienteBase):
     id: int
     created: Optional[datetime] = None

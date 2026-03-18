@@ -25,7 +25,30 @@ def get_clientes(db: Session) -> List[ClienteOut]:
     return [ClienteOut.model_validate(c) for c in clientes]
 
 def create_cliente(db: Session, cliente_data: ClienteCreate) -> ClienteOut:
-    """Crea un nuevo cliente"""
+    """
+    Crea un nuevo cliente.
+    Valida que no exista un cliente duplicado con el mismo nombre y email.
+    """
+    # Validar duplicados por nombre y email
+    query = db.query(Cliente).filter(Cliente.nombre == cliente_data.nombre)
+
+    # Si tiene email, validar por nombre + email
+    if cliente_data.email:
+        query = query.filter(Cliente.email == cliente_data.email)
+        cliente_existente = query.first()
+        if cliente_existente:
+            raise ValueError(
+                f"Ya existe un cliente con el nombre '{cliente_data.nombre}' y email '{cliente_data.email}'"
+            )
+    else:
+        # Si no tiene email, validar solo por nombre
+        cliente_existente = query.first()
+        if cliente_existente:
+            raise ValueError(
+                f"Ya existe un cliente con el nombre '{cliente_data.nombre}'"
+            )
+
+    # Crear nuevo cliente
     nuevo_cliente = Cliente(
         nombre=cliente_data.nombre,
         email=cliente_data.email,

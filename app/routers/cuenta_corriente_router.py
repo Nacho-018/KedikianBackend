@@ -7,6 +7,7 @@ from app.db.models import Proyecto, EntregaArido, ReporteLaboral
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
+    ReporteCuentaCorrientePatchRequest,
     ReporteCuentaCorrienteOut,
     ResumenProyectoSchema,
     PrecioAridoSchema,
@@ -24,8 +25,11 @@ from app.schemas.schemas import (
     RegistrarPagoResponse
 )
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.services import cuenta_corriente_service
 from app.security.auth import get_current_user
+from app.db.models.pago_reporte import PagoReporte
+from decimal import Decimal
 import io
 import pandas as pd
 from reportlab.lib.pagesizes import letter, A4
@@ -239,6 +243,60 @@ def update_estado_reporte(
 
     return reporte
 
+@router.patch("/reportes/{reporte_id}", response_model=ReporteCuentaCorrienteOut)
+def actualizar_reporte(
+    reporte_id: int,
+    datos: ReporteCuentaCorrientePatchRequest,
+    session: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Actualiza campos editables de un reporte de cuenta corriente.
+
+    Solo administradores pueden usar este endpoint.
+
+    Campos editables:
+    - observaciones: Observaciones del reporte
+    - numero_factura: Número de factura asociada
+    - fecha_pago: Fecha de pago (debe ser >= fecha_generacion)
+
+    Todos los campos son opcionales. Solo se actualizan los campos proporcionados.
+    """
+    # Verificar permisos de administrador
+    if not current_user.roles or "administrador" not in current_user.roles:
+        raise HTTPException(
+            status_code=403,
+            detail="No tiene permisos de administrador para realizar esta acción"
+        )
+
+    try:
+        reporte = cuenta_corriente_service.actualizar_reporte(
+            session,
+            reporte_id,
+            datos
+        )
+
+        if not reporte:
+            raise HTTPException(
+                status_code=404,
+                detail="Reporte no encontrado"
+            )
+
+        return reporte
+
+    except ValueError as e:
+        # Errores de validación (ej: fecha_pago anterior a fecha_generacion)
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        # Otros errores
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al actualizar reporte: {str(e)}"
+        )
+
 @router.delete("/reportes/{reporte_id}", status_code=204)
 def delete_reporte(
     reporte_id: int,
@@ -356,19 +414,34 @@ def exportar_reporte_excel(
     if not resumen:
         raise HTTPException(status_code=404, detail="No se pudo obtener el resumen del proyecto")
 
+    # Obtener todos los pagos del reporte
+    pagos = session.query(PagoReporte).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).order_by(PagoReporte.fecha.desc()).all()
+
+    # Calcular total pagado
+    total_pagado = session.query(func.sum(PagoReporte.monto)).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).scalar() or Decimal('0.0')
+
+    # Calcular saldo pendiente
+    saldo_pendiente = (reporte.importe_total or Decimal('0.0')) - total_pagado
+
     # Crear el archivo Excel en memoria
     output = io.BytesIO()
 
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         # Información general
         info_data = {
-            'Campo': ['Proyecto', 'Período', 'Fecha Generación', 'Estado', 'N° Factura'],
+            'Campo': ['Proyecto', 'Período', 'Fecha Generación', 'Estado', 'N° Factura', 'Total Pagado', 'Saldo Pendiente'],
             'Valor': [
                 resumen.proyecto_nombre,
                 f"{reporte.periodo_inicio} - {reporte.periodo_fin}",
                 reporte.fecha_generacion.strftime("%d/%m/%Y %H:%M"),
                 reporte.estado,
-                reporte.numero_factura or 'N/A'
+                reporte.numero_factura or 'N/A',
+                f"${float(total_pagado):,.2f}",
+                f"${float(saldo_pendiente):,.2f}"
             ]
         }
         df_info = pd.DataFrame(info_data)
@@ -396,6 +469,17 @@ def exportar_reporte_excel(
             df_horas = pd.DataFrame(horas_data)
             df_horas.to_excel(writer, sheet_name='Horas Máquinas', index=False)
 
+        # Detalle de pagos (si hay pagos)
+        if pagos:
+            pagos_data = {
+                'Fecha de Pago': [p.fecha.strftime("%d/%m/%Y") for p in pagos],
+                'Monto': [f"${float(p.monto):,.2f}" for p in pagos],
+                'Observaciones': [p.observaciones or 'Sin observaciones' for p in pagos],
+                'Fecha de Registro': [p.fecha_registro.strftime("%d/%m/%Y %H:%M") if p.fecha_registro else 'N/A' for p in pagos]
+            }
+            df_pagos = pd.DataFrame(pagos_data)
+            df_pagos.to_excel(writer, sheet_name='Pagos', index=False)
+
         # Resumen de totales
         totales_data = {
             'Concepto': [
@@ -403,14 +487,20 @@ def exportar_reporte_excel(
                 'Importe Áridos',
                 'Total Horas',
                 'Importe Horas',
-                'IMPORTE TOTAL'
+                'IMPORTE TOTAL',
+                '--- Pagos ---',
+                'Total Pagado',
+                'Saldo Pendiente'
             ],
             'Valor': [
                 resumen.total_aridos_m3,
                 resumen.total_importe_aridos,
                 resumen.total_horas,
                 resumen.total_importe_horas,
-                resumen.importe_total
+                resumen.importe_total,
+                '',
+                f"${float(total_pagado):,.2f}",
+                f"${float(saldo_pendiente):,.2f}"
             ]
         }
         df_totales = pd.DataFrame(totales_data)
@@ -453,6 +543,19 @@ def exportar_reporte_pdf(
     if not resumen:
         raise HTTPException(status_code=404, detail="No se pudo obtener el resumen del proyecto")
 
+    # Obtener todos los pagos del reporte
+    pagos = session.query(PagoReporte).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).order_by(PagoReporte.fecha.desc()).all()
+
+    # Calcular total pagado
+    total_pagado = session.query(func.sum(PagoReporte.monto)).filter(
+        PagoReporte.reporte_id == reporte_id
+    ).scalar() or Decimal('0.0')
+
+    # Calcular saldo pendiente
+    saldo_pendiente = (reporte.importe_total or Decimal('0.0')) - total_pagado
+
     # Crear el PDF en memoria
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -483,7 +586,9 @@ def exportar_reporte_pdf(
     <b>Período:</b> {reporte.periodo_inicio} al {reporte.periodo_fin}<br/>
     <b>Fecha de Generación:</b> {reporte.fecha_generacion.strftime("%d/%m/%Y %H:%M")}<br/>
     <b>Estado:</b> {reporte.estado.upper()}<br/>
-    <b>N° Factura:</b> {reporte.numero_factura or 'N/A'}
+    <b>N° Factura:</b> {reporte.numero_factura or 'N/A'}<br/>
+    <b>Total Pagado:</b> ${float(total_pagado):,.2f}<br/>
+    <b>Saldo Pendiente:</b> ${float(saldo_pendiente):,.2f}
     """
     info_para = Paragraph(info_text, styles['Normal'])
     elements.append(info_para)
@@ -547,6 +652,35 @@ def exportar_reporte_pdf(
         elements.append(horas_table)
         elements.append(Spacer(1, 0.3*inch))
 
+    # Tabla de pagos (si hay pagos)
+    if pagos:
+        pagos_title = Paragraph("<b>HISTORIAL DE PAGOS</b>", styles['Heading2'])
+        elements.append(pagos_title)
+        elements.append(Spacer(1, 0.1*inch))
+
+        pagos_data = [['Fecha de Pago', 'Monto', 'Observaciones', 'Fecha de Registro']]
+        for pago in pagos:
+            pagos_data.append([
+                pago.fecha.strftime("%d/%m/%Y"),
+                f"${float(pago.monto):,.2f}",
+                pago.observaciones or 'Sin observaciones',
+                pago.fecha_registro.strftime("%d/%m/%Y %H:%M") if pago.fecha_registro else 'N/A'
+            ])
+
+        pagos_table = Table(pagos_data)
+        pagos_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        elements.append(pagos_table)
+        elements.append(Spacer(1, 0.3*inch))
+
     # Totales
     totales_title = Paragraph("<b>TOTALES</b>", styles['Heading2'])
     elements.append(totales_title)
@@ -558,7 +692,10 @@ def exportar_reporte_pdf(
         ['Importe Áridos', f"${resumen.total_importe_aridos:,.2f}"],
         ['Total Horas', f"{resumen.total_horas:.2f}"],
         ['Importe Horas', f"${resumen.total_importe_horas:,.2f}"],
-        ['IMPORTE TOTAL', f"${resumen.importe_total:,.2f}"]
+        ['IMPORTE TOTAL', f"${resumen.importe_total:,.2f}"],
+        ['--- Pagos ---', ''],
+        ['Total Pagado', f"${float(total_pagado):,.2f}"],
+        ['Saldo Pendiente', f"${float(saldo_pendiente):,.2f}"]
     ]
 
     totales_table = Table(totales_data)
