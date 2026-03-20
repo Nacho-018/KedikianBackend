@@ -1,4 +1,4 @@
-# Exportar todos los routers para facilitar su importaci�n
+# Exportar todos los routers para facilitar su importacion
 from . import (
     usuarios_router,
     maquinas_router,
@@ -17,7 +17,9 @@ from . import (
     mantenimiento_router,
     jornada_laboral_router,
     cuenta_corriente_router,
-    cotizacion_router
+    cotizacion_router,
+    external_api,
+    auth_external
 )
 
 __all__ = [
@@ -38,5 +40,7 @@ __all__ = [
     "mantenimiento_router",
     "jornada_laboral_router",
     "cuenta_corriente_router",
-    "cotizacion_router"
+    "cotizacion_router",
+    "external_api",
+    "auth_external"
 ]

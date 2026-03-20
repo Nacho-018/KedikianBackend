@@ -3,7 +3,7 @@ uvicorn==0.34.2
 APScheduler==3.10.4
 sqlalchemy
 python-dotenv
-python-jose
+python-jose[cryptography]
 passlib[bcrypt]
 pydantic
 pandas
@@ -11,3 +11,4 @@ openpyxl
 psycopg2-binary
 reportlab
 pydantic-settings
+httpx
