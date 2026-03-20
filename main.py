@@ -31,7 +31,8 @@ from app.routers import (
     cuenta_corriente_router,
     cotizacion_router,
     external_api,
-    auth_external
+    auth_external,
+    client_api
 )
 
 # ✅ NUEVO: Importar scheduler
@@ -154,9 +155,10 @@ app.include_router(jornada_laboral_router.router, prefix="/v1")
 app.include_router(cuenta_corriente_router.router, prefix="/v1")
 app.include_router(cotizacion_router.router, prefix="/v1")
 
-# ✅ Routers de API Externa (después de CORS)
+# ✅ Routers de API Externa y Clientes (después de CORS)
 app.include_router(auth_external.router)
 app.include_router(external_api.router)
+app.include_router(client_api.router)
 
 # Debug al final del archivo, después de incluir routers
 def debug_routes():

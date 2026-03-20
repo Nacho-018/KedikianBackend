@@ -19,7 +19,8 @@ from . import (
     cuenta_corriente_router,
     cotizacion_router,
     external_api,
-    auth_external
+    auth_external,
+    client_api
 )
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     "cuenta_corriente_router",
     "cotizacion_router",
     "external_api",
-    "auth_external"
+    "auth_external",
+    "client_api"
 ]
