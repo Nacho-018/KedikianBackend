@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from sqlalchemy.sql import func
@@ -11,6 +11,8 @@ class Cliente(Base):
     email = Column(String(255), nullable=True)
     telefono = Column(String(50), nullable=True)
     direccion = Column(String(500), nullable=True)
+    oculto = Column(Boolean, default=False, nullable=False)  # Para ocultar clientes del listado
+    ocultar_al_aprobar = Column(Boolean, default=False, nullable=False)  # Auto-ocultar al aprobar cotización
 
     # Timestamps
     created = Column(DateTime(timezone=True), server_default=func.now())

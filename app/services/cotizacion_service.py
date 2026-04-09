@@ -19,10 +19,47 @@ from app.services.cuenta_corriente_service import PRECIOS_ARIDOS, TARIFAS_MAQUIN
 
 # ============= FUNCIONES DE CLIENTES =============
 
-def get_clientes(db: Session) -> List[ClienteOut]:
-    """Obtiene todos los clientes"""
-    clientes = db.query(Cliente).order_by(Cliente.nombre).all()
+def get_clientes(db: Session, incluir_ocultos: bool = False) -> List[ClienteOut]:
+    """
+    Obtiene clientes, opcionalmente filtrando los ocultos.
+
+    Args:
+        db: Sesión de base de datos
+        incluir_ocultos: Si es False (default), solo devuelve clientes no ocultos
+    """
+    query = db.query(Cliente)
+
+    if not incluir_ocultos:
+        query = query.filter(Cliente.oculto == False)
+
+    clientes = query.order_by(Cliente.nombre).all()
     return [ClienteOut.model_validate(c) for c in clientes]
+
+def ocultar_cliente(db: Session, cliente_id: int) -> Optional[ClienteOut]:
+    """Marca un cliente como oculto"""
+    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+
+    if not cliente:
+        return None
+
+    cliente.oculto = True
+    db.commit()
+    db.refresh(cliente)
+
+    return ClienteOut.model_validate(cliente)
+
+def mostrar_cliente(db: Session, cliente_id: int) -> Optional[ClienteOut]:
+    """Marca un cliente como visible (no oculto)"""
+    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+
+    if not cliente:
+        return None
+
+    cliente.oculto = False
+    db.commit()
+    db.refresh(cliente)
+
+    return ClienteOut.model_validate(cliente)
 
 def create_cliente(db: Session, cliente_data: ClienteCreate) -> ClienteOut:
     """
@@ -53,7 +90,8 @@ def create_cliente(db: Session, cliente_data: ClienteCreate) -> ClienteOut:
         nombre=cliente_data.nombre,
         email=cliente_data.email,
         telefono=cliente_data.telefono,
-        direccion=cliente_data.direccion
+        direccion=cliente_data.direccion,
+        ocultar_al_aprobar=cliente_data.ocultar_al_aprobar
     )
 
     db.add(nuevo_cliente)
@@ -188,19 +226,34 @@ def update_cotizacion(
     """
     Actualiza el estado, observaciones o fecha de validez de una cotización.
     No modifica los items (usar update_cotizacion_items para eso).
+
+    Si el estado cambia a "aprobada" y el cliente tiene ocultar_al_aprobar=True,
+    el cliente se ocultará automáticamente.
     """
-    cotizacion = db.query(Cotizacion).filter(
+    cotizacion = db.query(Cotizacion).options(
+        joinedload(Cotizacion.cliente)
+    ).filter(
         Cotizacion.id == cotizacion_id
     ).first()
 
     if not cotizacion:
         return None
 
+    # Verificar si se está aprobando la cotización
+    estado_anterior = cotizacion.estado
+    nuevo_estado = cotizacion_update.estado if cotizacion_update.estado else estado_anterior
+
     # Actualizar solo los campos proporcionados
     update_data = cotizacion_update.model_dump(exclude_unset=True)
 
     for field, value in update_data.items():
         setattr(cotizacion, field, value)
+
+    # Auto-ocultar cliente si se aprueba y tiene la bandera activada
+    if nuevo_estado == "aprobada" and estado_anterior != "aprobada":
+        cliente = cotizacion.cliente
+        if cliente and cliente.ocultar_al_aprobar:
+            cliente.oculto = True
 
     db.commit()
     db.refresh(cotizacion)

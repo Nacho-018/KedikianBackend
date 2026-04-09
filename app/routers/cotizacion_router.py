@@ -33,11 +33,55 @@ router = APIRouter(
 # ============= Endpoints de Clientes =============
 
 @router.get("/clientes", response_model=List[ClienteOut])
-def get_clientes(session: Session = Depends(get_db)):
+def get_clientes(
+    incluir_ocultos: bool = Query(False, description="Incluir clientes ocultos en el listado"),
+    session: Session = Depends(get_db)
+):
     """
-    Obtiene todos los clientes registrados en el sistema.
+    Obtiene los clientes registrados en el sistema.
+
+    Por defecto solo devuelve clientes visibles (oculto=false).
+    Usar incluir_ocultos=true para obtener todos los clientes.
     """
-    return cotizacion_service.get_clientes(session)
+    return cotizacion_service.get_clientes(session, incluir_ocultos)
+
+@router.put("/clientes/{cliente_id}/ocultar", response_model=ClienteOut)
+def ocultar_cliente(
+    cliente_id: int,
+    session: Session = Depends(get_db)
+):
+    """
+    Oculta un cliente del listado principal.
+    El cliente seguirá existiendo pero no aparecerá en el listado por defecto.
+    """
+    cliente = cotizacion_service.ocultar_cliente(session, cliente_id)
+
+    if not cliente:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cliente con ID {cliente_id} no encontrado"
+        )
+
+    return cliente
+
+@router.put("/clientes/{cliente_id}/mostrar", response_model=ClienteOut)
+def mostrar_cliente(
+    cliente_id: int,
+    session: Session = Depends(get_db)
+):
+    """
+    Muestra un cliente previamente oculto.
+    El cliente volverá a aparecer en el listado principal.
+    """
+    cliente = cotizacion_service.mostrar_cliente(session, cliente_id)
+
+    if not cliente:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cliente con ID {cliente_id} no encontrado"
+        )
+
+    return cliente
 
 @router.post("/clientes", response_model=ClienteOut, status_code=201)
 def create_cliente(

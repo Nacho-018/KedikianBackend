@@ -184,6 +184,7 @@ class GastoOut(GastoBase):
 # Maquina
 class MaquinaBase(BaseModel):
     nombre: str
+    estado: int = 1  # 1 = activa, 0 = inactiva
     horas_uso: int = 0
     horometro_inicial: Optional[float] = 0
     proximo_mantenimiento: Optional[float] = None  # ✅ Horas para próximo mantenimiento
@@ -194,6 +195,7 @@ class MaquinaCreate(MaquinaBase):
 class MaquinaSchema(BaseModel):
     id: Optional[int] = None
     nombre: str
+    estado: int = 1  # 1 = activa, 0 = inactiva
     horas_uso: int = 0
     horas_maquina: int = 0
     horometro_inicial: Optional[float] = 0
@@ -205,6 +207,7 @@ class MaquinaSchema(BaseModel):
 class MaquinaOut(BaseModel):
     id: int
     nombre: str
+    estado: int = 1  # 1 = activa, 0 = inactiva
     horas_uso: int = 0
     horas_maquina: int = 0
     horometro_inicial: Optional[float] = 0
@@ -1187,6 +1190,7 @@ class ClienteCreate(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    ocultar_al_aprobar: bool = Field(False, description="Auto-ocultar al aprobar cotización")
 
 class ClienteOut(BaseModel):
     id: int
@@ -1194,6 +1198,8 @@ class ClienteOut(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     direccion: Optional[str] = None
+    oculto: bool = False
+    ocultar_al_aprobar: bool = False
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
 

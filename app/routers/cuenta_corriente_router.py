@@ -469,42 +469,68 @@ def exportar_reporte_excel(
             df_horas = pd.DataFrame(horas_data)
             df_horas.to_excel(writer, sheet_name='Horas Máquinas', index=False)
 
-        # Detalle de pagos (si hay pagos)
-        if pagos:
-            pagos_data = {
-                'Fecha de Pago': [p.fecha.strftime("%d/%m/%Y") for p in pagos],
-                'Monto': [f"${float(p.monto):,.2f}" for p in pagos],
-                'Observaciones': [p.observaciones or 'Sin observaciones' for p in pagos],
-                'Fecha de Registro': [p.fecha_registro.strftime("%d/%m/%Y %H:%M") if p.fecha_registro else 'N/A' for p in pagos]
-            }
-            df_pagos = pd.DataFrame(pagos_data)
-            df_pagos.to_excel(writer, sheet_name='Pagos', index=False)
-
-        # Resumen de totales
+        # Resumen de totales de servicios
         totales_data = {
             'Concepto': [
                 'Total Áridos (m³)',
                 'Importe Áridos',
                 'Total Horas',
                 'Importe Horas',
-                'IMPORTE TOTAL',
-                '--- Pagos ---',
-                'Total Pagado',
-                'Saldo Pendiente'
+                'IMPORTE TOTAL'
             ],
             'Valor': [
                 resumen.total_aridos_m3,
-                resumen.total_importe_aridos,
+                f"${resumen.total_importe_aridos:,.2f}",
                 resumen.total_horas,
-                resumen.total_importe_horas,
-                resumen.importe_total,
-                '',
-                f"${float(total_pagado):,.2f}",
-                f"${float(saldo_pendiente):,.2f}"
+                f"${resumen.total_importe_horas:,.2f}",
+                f"${resumen.importe_total:,.2f}"
             ]
         }
         df_totales = pd.DataFrame(totales_data)
         df_totales.to_excel(writer, sheet_name='Totales', index=False)
+
+        # ============= ESTADO DE CUENTA =============
+        estado_cuenta_rows = []
+
+        # Total del reporte
+        estado_cuenta_rows.append({'Concepto': 'ESTADO DE CUENTA', 'Importe': ''})
+        estado_cuenta_rows.append({'Concepto': '', 'Importe': ''})
+        estado_cuenta_rows.append({'Concepto': 'Total del Reporte', 'Importe': f"${resumen.importe_total:,.2f}"})
+        estado_cuenta_rows.append({'Concepto': '', 'Importe': ''})
+
+        # Historial de pagos
+        estado_cuenta_rows.append({'Concepto': 'HISTORIAL DE PAGOS', 'Importe': ''})
+
+        if pagos:
+            for pago in pagos:
+                referencia = pago.observaciones or 'Sin referencia'
+                estado_cuenta_rows.append({
+                    'Concepto': f"  {pago.fecha.strftime('%d/%m/%Y')} - {referencia}",
+                    'Importe': f"${float(pago.monto):,.2f}"
+                })
+        else:
+            estado_cuenta_rows.append({'Concepto': '  Sin pagos registrados', 'Importe': '-'})
+
+        estado_cuenta_rows.append({'Concepto': '', 'Importe': ''})
+
+        # Resumen final
+        estado_cuenta_rows.append({'Concepto': 'RESUMEN', 'Importe': ''})
+        estado_cuenta_rows.append({'Concepto': 'Total Pagado', 'Importe': f"${float(total_pagado):,.2f}"})
+        estado_cuenta_rows.append({'Concepto': 'Saldo Pendiente', 'Importe': f"${float(saldo_pendiente):,.2f}"})
+
+        df_estado_cuenta = pd.DataFrame(estado_cuenta_rows)
+        df_estado_cuenta.to_excel(writer, sheet_name='Estado de Cuenta', index=False)
+
+        # Detalle de pagos (hoja separada con más detalle)
+        if pagos:
+            pagos_data = {
+                'Fecha de Pago': [p.fecha.strftime("%d/%m/%Y") for p in pagos],
+                'Monto': [float(p.monto) for p in pagos],
+                'Referencia': [p.observaciones or 'Sin referencia' for p in pagos],
+                'Fecha de Registro': [p.fecha_registro.strftime("%d/%m/%Y %H:%M") if p.fecha_registro else 'N/A' for p in pagos]
+            }
+            df_pagos = pd.DataFrame(pagos_data)
+            df_pagos.to_excel(writer, sheet_name='Detalle Pagos', index=False)
 
     output.seek(0)
 
@@ -524,212 +550,273 @@ def exportar_reporte_pdf(
     """
     Exporta un reporte de cuenta corriente a formato PDF
     """
-    # Obtener el reporte
-    reporte = cuenta_corriente_service.get_reporte(session, reporte_id)
-    if not reporte:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Reporte con ID {reporte_id} no encontrado"
+    import traceback
+    try:
+        # Obtener el reporte
+        reporte = cuenta_corriente_service.get_reporte(session, reporte_id)
+        if not reporte:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Reporte con ID {reporte_id} no encontrado"
+            )
+
+        # Obtener el resumen detallado
+        resumen = cuenta_corriente_service.get_resumen_proyecto(
+            session,
+            reporte.proyecto_id,
+            reporte.periodo_inicio,
+            reporte.periodo_fin
         )
 
-    # Obtener el resumen detallado
-    resumen = cuenta_corriente_service.get_resumen_proyecto(
-        session,
-        reporte.proyecto_id,
-        reporte.periodo_inicio,
-        reporte.periodo_fin
-    )
+        if not resumen:
+            raise HTTPException(status_code=404, detail="No se pudo obtener el resumen del proyecto")
 
-    if not resumen:
-        raise HTTPException(status_code=404, detail="No se pudo obtener el resumen del proyecto")
+        # Obtener todos los pagos del reporte
+        pagos = session.query(PagoReporte).filter(
+            PagoReporte.reporte_id == reporte_id
+        ).order_by(PagoReporte.fecha.desc()).all()
 
-    # Obtener todos los pagos del reporte
-    pagos = session.query(PagoReporte).filter(
-        PagoReporte.reporte_id == reporte_id
-    ).order_by(PagoReporte.fecha.desc()).all()
+        # Calcular total pagado
+        total_pagado = session.query(func.sum(PagoReporte.monto)).filter(
+            PagoReporte.reporte_id == reporte_id
+        ).scalar() or Decimal('0.0')
 
-    # Calcular total pagado
-    total_pagado = session.query(func.sum(PagoReporte.monto)).filter(
-        PagoReporte.reporte_id == reporte_id
-    ).scalar() or Decimal('0.0')
+        # Calcular saldo pendiente
+        saldo_pendiente = (reporte.importe_total or Decimal('0.0')) - total_pagado
 
-    # Calcular saldo pendiente
-    saldo_pendiente = (reporte.importe_total or Decimal('0.0')) - total_pagado
+        # Crear el PDF en memoria
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
 
-    # Crear el PDF en memoria
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
-    elements = []
-    styles = getSampleStyleSheet()
+        # Logo en el encabezado (si existe)
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'static', 'assets', 'logo-kedikian.png')
+        if os.path.exists(logo_path):
+            try:
+                logo = Image(logo_path, width=120, height=120)
+                logo.hAlign = 'CENTER'
+                elements.append(logo)
+                elements.append(Spacer(1, 0.2*inch))
+            except Exception as e:
+                print(f"Advertencia: No se pudo cargar el logo: {e}")
 
-    # Logo en el encabezado (si existe)
-    logo_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'static', 'assets', 'logo-kedikian.png')
-    if os.path.exists(logo_path):
-        try:
-            # El logo es casi cuadrado (536x528), mantener proporción 1:1
-            logo = Image(logo_path, width=120, height=120)
-            logo.hAlign = 'CENTER'
-            elements.append(logo)
-            elements.append(Spacer(1, 0.2*inch))
-        except Exception as e:
-            # Si hay error al cargar la imagen, continuar sin logo
-            print(f"Advertencia: No se pudo cargar el logo: {e}")
+        # Título
+        title = Paragraph(f"<b>REPORTE DE CUENTA CORRIENTE</b>", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 0.3*inch))
 
-    # Título
-    title = Paragraph(f"<b>REPORTE DE CUENTA CORRIENTE</b>", styles['Title'])
-    elements.append(title)
-    elements.append(Spacer(1, 0.3*inch))
+        # Información general
+        info_text = f"""
+        <b>Proyecto:</b> {resumen.proyecto_nombre}<br/>
+        <b>Período:</b> {reporte.periodo_inicio} al {reporte.periodo_fin}<br/>
+        <b>Fecha de Generación:</b> {reporte.fecha_generacion.strftime("%d/%m/%Y %H:%M")}<br/>
+        <b>Estado:</b> {reporte.estado.upper()}<br/>
+        <b>N° Factura:</b> {reporte.numero_factura or 'N/A'}<br/>
+        <b>Total Pagado:</b> ${float(total_pagado):,.2f}<br/>
+        <b>Saldo Pendiente:</b> ${float(saldo_pendiente):,.2f}
+        """
+        info_para = Paragraph(info_text, styles['Normal'])
+        elements.append(info_para)
+        elements.append(Spacer(1, 0.3*inch))
 
-    # Información general
-    info_text = f"""
-    <b>Proyecto:</b> {resumen.proyecto_nombre}<br/>
-    <b>Período:</b> {reporte.periodo_inicio} al {reporte.periodo_fin}<br/>
-    <b>Fecha de Generación:</b> {reporte.fecha_generacion.strftime("%d/%m/%Y %H:%M")}<br/>
-    <b>Estado:</b> {reporte.estado.upper()}<br/>
-    <b>N° Factura:</b> {reporte.numero_factura or 'N/A'}<br/>
-    <b>Total Pagado:</b> ${float(total_pagado):,.2f}<br/>
-    <b>Saldo Pendiente:</b> ${float(saldo_pendiente):,.2f}
-    """
-    info_para = Paragraph(info_text, styles['Normal'])
-    elements.append(info_para)
-    elements.append(Spacer(1, 0.3*inch))
+        # Tabla de áridos
+        if resumen.aridos:
+            aridos_title = Paragraph("<b>DETALLE DE ÁRIDOS</b>", styles['Heading2'])
+            elements.append(aridos_title)
+            elements.append(Spacer(1, 0.1*inch))
 
-    # Tabla de áridos
-    if resumen.aridos:
-        aridos_title = Paragraph("<b>DETALLE DE ÁRIDOS</b>", styles['Heading2'])
-        elements.append(aridos_title)
+            aridos_data = [['Tipo Árido', 'Cantidad (m³)', 'Precio/m³', 'Importe']]
+            for arido in resumen.aridos:
+                aridos_data.append([
+                    arido.tipo_arido,
+                    f"{arido.cantidad:.2f}",
+                    f"${arido.precio_unitario:,.2f}",
+                    f"${arido.importe:,.2f}"
+                ])
+
+            aridos_table = Table(aridos_data)
+            aridos_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(aridos_table)
+            elements.append(Spacer(1, 0.3*inch))
+
+        # Tabla de horas de máquinas
+        if resumen.horas_maquinas:
+            horas_title = Paragraph("<b>DETALLE DE HORAS DE MÁQUINAS</b>", styles['Heading2'])
+            elements.append(horas_title)
+            elements.append(Spacer(1, 0.1*inch))
+
+            horas_data = [['Máquina', 'Total Horas', 'Tarifa/Hora', 'Importe']]
+            for hora in resumen.horas_maquinas:
+                horas_data.append([
+                    hora.maquina_nombre,
+                    f"{hora.total_horas:.2f}",
+                    f"${hora.tarifa_hora:,.2f}",
+                    f"${hora.importe:,.2f}"
+                ])
+
+            horas_table = Table(horas_data)
+            horas_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(horas_table)
+            elements.append(Spacer(1, 0.3*inch))
+
+        # Totales de servicios
+        totales_title = Paragraph("<b>TOTALES DE SERVICIOS</b>", styles['Heading2'])
+        elements.append(totales_title)
         elements.append(Spacer(1, 0.1*inch))
 
-        aridos_data = [['Tipo Árido', 'Cantidad (m³)', 'Precio/m³', 'Importe']]
-        for arido in resumen.aridos:
-            aridos_data.append([
-                arido.tipo_arido,
-                f"{arido.cantidad:.2f}",
-                f"${arido.precio_unitario:,.2f}",
-                f"${arido.importe:,.2f}"
-            ])
+        totales_servicios_data = [
+            ['Concepto', 'Valor'],
+            ['Total Áridos (m³)', f"{resumen.total_aridos_m3:.2f}"],
+            ['Importe Áridos', f"${resumen.total_importe_aridos:,.2f}"],
+            ['Total Horas', f"{resumen.total_horas:.2f}"],
+            ['Importe Horas', f"${resumen.total_importe_horas:,.2f}"],
+            ['IMPORTE TOTAL', f"${resumen.importe_total:,.2f}"]
+        ]
 
-        aridos_table = Table(aridos_data)
-        aridos_table.setStyle(TableStyle([
+        totales_servicios_table = Table(totales_servicios_data)
+        totales_servicios_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.lightblue),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        elements.append(aridos_table)
-        elements.append(Spacer(1, 0.3*inch))
+        elements.append(totales_servicios_table)
+        elements.append(Spacer(1, 0.4*inch))
 
-    # Tabla de horas de máquinas
-    if resumen.horas_maquinas:
-        horas_title = Paragraph("<b>DETALLE DE HORAS DE MÁQUINAS</b>", styles['Heading2'])
-        elements.append(horas_title)
+        # ============= ESTADO DE CUENTA =============
+        estado_cuenta_title = Paragraph("<b>ESTADO DE CUENTA</b>", styles['Heading2'])
+        elements.append(estado_cuenta_title)
         elements.append(Spacer(1, 0.1*inch))
 
-        horas_data = [['Máquina', 'Total Horas', 'Tarifa/Hora', 'Importe']]
-        for hora in resumen.horas_maquinas:
-            horas_data.append([
-                hora.maquina_nombre,
-                f"{hora.total_horas:.2f}",
-                f"${hora.tarifa_hora:,.2f}",
-                f"${hora.importe:,.2f}"
-            ])
-
-        horas_table = Table(horas_data)
-        horas_table.setStyle(TableStyle([
+        # Total del reporte
+        total_reporte_data = [
+            ['Concepto', 'Importe'],
+            ['Total del Reporte', f"${resumen.importe_total:,.2f}"]
+        ]
+        total_reporte_table = Table(total_reporte_data, colWidths=[200, 150])
+        total_reporte_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        elements.append(horas_table)
-        elements.append(Spacer(1, 0.3*inch))
+        elements.append(total_reporte_table)
+        elements.append(Spacer(1, 0.2*inch))
 
-    # Tabla de pagos (si hay pagos)
-    if pagos:
-        pagos_title = Paragraph("<b>HISTORIAL DE PAGOS</b>", styles['Heading2'])
-        elements.append(pagos_title)
+        # Historial de pagos
+        pagos_hist_title = Paragraph("<b>Historial de Pagos:</b>", styles['Normal'])
+        elements.append(pagos_hist_title)
         elements.append(Spacer(1, 0.1*inch))
 
-        pagos_data = [['Fecha de Pago', 'Monto', 'Observaciones', 'Fecha de Registro']]
-        for pago in pagos:
-            pagos_data.append([
-                pago.fecha.strftime("%d/%m/%Y"),
-                f"${float(pago.monto):,.2f}",
-                pago.observaciones or 'Sin observaciones',
-                pago.fecha_registro.strftime("%d/%m/%Y %H:%M") if pago.fecha_registro else 'N/A'
-            ])
+        if pagos:
+            pagos_data = [['Fecha', 'Monto', 'Referencia']]
+            for pago in pagos:
+                pagos_data.append([
+                    pago.fecha.strftime("%d/%m/%Y"),
+                    f"${float(pago.monto):,.2f}",
+                    pago.observaciones or 'Sin referencia'
+                ])
 
-        pagos_table = Table(pagos_data)
-        pagos_table.setStyle(TableStyle([
+            pagos_table = Table(pagos_data, colWidths=[100, 120, 180])
+            pagos_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.lightgrey),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            elements.append(pagos_table)
+        else:
+            sin_pagos = Paragraph("<i>Sin pagos registrados</i>", styles['Normal'])
+            elements.append(sin_pagos)
+
+        elements.append(Spacer(1, 0.2*inch))
+
+        # Resumen final con colores
+        resumen_final_data = [
+            ['Concepto', 'Importe'],
+            ['Total Pagado', f"${float(total_pagado):,.2f}"],
+            ['Saldo Pendiente', f"${float(saldo_pendiente):,.2f}"]
+        ]
+
+        resumen_final_table = Table(resumen_final_data, colWidths=[200, 150])
+
+        # Determinar color del saldo pendiente
+        hay_saldo_pendiente = float(saldo_pendiente) > 0
+        color_saldo = colors.HexColor('#FF6B6B') if hay_saldo_pendiente else colors.HexColor('#4CAF50')
+        bg_saldo = colors.HexColor('#FFEBEE') if hay_saldo_pendiente else colors.HexColor('#E8F5E9')
+
+        resumen_final_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#E8F5E9')),
+            ('TEXTCOLOR', (1, 1), (1, 1), colors.HexColor('#2E7D32')),
+            ('BACKGROUND', (0, 2), (-1, 2), bg_saldo),
+            ('TEXTCOLOR', (1, 2), (1, 2), color_saldo),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
-        elements.append(pagos_table)
-        elements.append(Spacer(1, 0.3*inch))
+        elements.append(resumen_final_table)
 
-    # Totales
-    totales_title = Paragraph("<b>TOTALES</b>", styles['Heading2'])
-    elements.append(totales_title)
-    elements.append(Spacer(1, 0.1*inch))
+        # Observaciones
+        if reporte.observaciones:
+            elements.append(Spacer(1, 0.3*inch))
+            obs_title = Paragraph("<b>OBSERVACIONES</b>", styles['Heading2'])
+            elements.append(obs_title)
+            obs_text = Paragraph(reporte.observaciones, styles['Normal'])
+            elements.append(obs_text)
 
-    totales_data = [
-        ['Concepto', 'Valor'],
-        ['Total Áridos (m³)', f"{resumen.total_aridos_m3:.2f}"],
-        ['Importe Áridos', f"${resumen.total_importe_aridos:,.2f}"],
-        ['Total Horas', f"{resumen.total_horas:.2f}"],
-        ['Importe Horas', f"${resumen.total_importe_horas:,.2f}"],
-        ['IMPORTE TOTAL', f"${resumen.importe_total:,.2f}"],
-        ['--- Pagos ---', ''],
-        ['Total Pagado', f"${float(total_pagado):,.2f}"],
-        ['Saldo Pendiente', f"${float(saldo_pendiente):,.2f}"]
-    ]
+        # Generar PDF
+        doc.build(elements)
+        buffer.seek(0)
 
-    totales_table = Table(totales_data)
-    totales_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    ]))
-    elements.append(totales_table)
+        filename = f"reporte_cuenta_corriente_{reporte_id}_{resumen.proyecto_nombre.replace(' ', '_')}.pdf"
 
-    # Observaciones
-    if reporte.observaciones:
-        elements.append(Spacer(1, 0.3*inch))
-        obs_title = Paragraph("<b>OBSERVACIONES</b>", styles['Heading2'])
-        elements.append(obs_title)
-        obs_text = Paragraph(reporte.observaciones, styles['Normal'])
-        elements.append(obs_text)
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
 
-    # Generar PDF
-    doc.build(elements)
-    buffer.seek(0)
-
-    filename = f"reporte_cuenta_corriente_{reporte_id}_{resumen.proyecto_nombre.replace(' ', '_')}.pdf"
-
-    return StreamingResponse(
-        buffer,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"Error generando PDF: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 # ============= ENDPOINTS PARA ACTUALIZACIÓN DE PRECIOS Y TARIFAS =============
 

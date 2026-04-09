@@ -9,6 +9,7 @@ class Maquina(Base):
     __tablename__ = "maquina"
     id = Column(Integer, primary_key=True, autoincrement=True)
     nombre = Column(String(50))
+    estado = Column(Integer, default=1)  # 1 = activa, 0 = inactiva
     horas_uso = Column(Integer, default=0)
     horas_maquina = Column(Integer, default=0)
     horometro_inicial = Column(Float, default=0)  # ✅ Horómetro actual
