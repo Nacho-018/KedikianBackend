@@ -1050,6 +1050,9 @@ class ReporteCuentaCorrienteOut(ReporteCuentaCorrienteBase):
     id: int
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
+    monto_pagado: Optional[float] = 0.0
+    saldo_pendiente: Optional[float] = 0.0
+    pagos: Optional[List["PagoReporteOut"]] = []
 
     class Config:
         from_attributes = True
@@ -1288,3 +1291,6 @@ class RegistrarPagoResponse(BaseModel):
     reporte_actualizado: ReporteCuentaCorrienteOut
     total_pagado: float
     saldo_pendiente: float
+
+
+ReporteCuentaCorrienteOut.model_rebuild()

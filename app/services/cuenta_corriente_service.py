@@ -197,25 +197,32 @@ def get_resumen_proyecto(
         importe_total=importe_total
     )
 
+def _enrich_reporte(reporte) -> ReporteCuentaCorrienteOut:
+    monto_pagado = float(sum(p.monto for p in reporte.pagos))
+    importe_total = float(reporte.importe_total or 0)
+    reporte.monto_pagado = monto_pagado
+    reporte.saldo_pendiente = importe_total - monto_pagado
+    return ReporteCuentaCorrienteOut.model_validate(reporte)
+
 def get_reportes(db: Session, proyecto_id: Optional[int] = None) -> List[ReporteCuentaCorrienteOut]:
     """Obtiene todos los reportes de cuenta corriente, opcionalmente filtrados por proyecto"""
-    query = db.query(ReporteCuentaCorriente)
+    query = db.query(ReporteCuentaCorriente).options(joinedload(ReporteCuentaCorriente.pagos))
 
     if proyecto_id:
         query = query.filter(ReporteCuentaCorriente.proyecto_id == proyecto_id)
 
     reportes = query.order_by(ReporteCuentaCorriente.fecha_generacion.desc()).all()
 
-    return [ReporteCuentaCorrienteOut.model_validate(r) for r in reportes]
+    return [_enrich_reporte(r) for r in reportes]
 
 def get_reporte(db: Session, reporte_id: int) -> Optional[ReporteCuentaCorrienteOut]:
     """Obtiene un reporte específico por ID"""
-    reporte = db.query(ReporteCuentaCorriente).filter(
-        ReporteCuentaCorriente.id == reporte_id
-    ).first()
+    reporte = db.query(ReporteCuentaCorriente).options(
+        joinedload(ReporteCuentaCorriente.pagos)
+    ).filter(ReporteCuentaCorriente.id == reporte_id).first()
 
     if reporte:
-        return ReporteCuentaCorrienteOut.model_validate(reporte)
+        return _enrich_reporte(reporte)
     return None
 
 def create_reporte(db: Session, reporte_data: ReporteCuentaCorrienteCreate):

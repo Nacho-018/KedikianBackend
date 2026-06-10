@@ -577,12 +577,14 @@ def exportar_reporte_pdf(
         ).order_by(PagoReporte.fecha.desc()).all()
 
         # Calcular total pagado
-        total_pagado = session.query(func.sum(PagoReporte.monto)).filter(
+        total_pagado_decimal = session.query(func.sum(PagoReporte.monto)).filter(
             PagoReporte.reporte_id == reporte_id
         ).scalar() or Decimal('0.0')
+        total_pagado = float(total_pagado_decimal)
 
         # Calcular saldo pendiente
-        saldo_pendiente = (reporte.importe_total or Decimal('0.0')) - total_pagado
+        importe_total = float(reporte.importe_total or 0)
+        saldo_pendiente = importe_total - total_pagado
 
         # Crear el PDF en memoria
         buffer = io.BytesIO()
