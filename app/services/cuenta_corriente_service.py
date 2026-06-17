@@ -24,6 +24,7 @@ from sqlalchemy import func
 from typing import List, Optional, Dict
 from datetime import datetime, date
 from decimal import Decimal
+import unicodedata
 
 # ============= PRECIOS DE ÁRIDOS POR M³ =============
 # Estos son valores por defecto que se usan como fallback
@@ -33,12 +34,18 @@ PRECIOS_ARIDOS: Dict[str, float] = {
     "Granza": 54000.0,
     "Arena Común": 33680.0,
     "Relleno": 16000.0,
+    "Relleno (m3)": 16000.0,
     "Tierra Negra": 16000.0,
     "Piedra": 12000.0,
     "0.20": 8000.0,
     "Blinder": 10000.0,
     "Arena Lavada": 33680.0
 }
+
+def _normalizar(texto: str) -> str:
+    return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('utf-8').lower().strip()
+
+PRECIOS_ARIDOS_NORM: Dict[str, float] = {_normalizar(k): v for k, v in PRECIOS_ARIDOS.items()}
 
 
 # ============= TARIFAS DE MÁQUINAS POR HORA =============
@@ -67,7 +74,7 @@ TARIFAS_MAQUINAS: Dict[str, float] = {
 
 def get_precio_arido(tipo_arido: str) -> float:
     """Obtiene el precio por m³ de un tipo de árido"""
-    return PRECIOS_ARIDOS.get(tipo_arido, 0.0)
+    return PRECIOS_ARIDOS_NORM.get(_normalizar(tipo_arido), 0.0)
 
 def get_tarifa_maquina(maquina_nombre: str) -> float:
     """Obtiene la tarifa por hora de una máquina"""
@@ -102,6 +109,11 @@ def get_resumen_proyecto(
     if not proyecto:
         return None
 
+    # IDs de entregas ya incluidas en un reporte pagado
+    aridos_pagados = db.query(ReporteItemArido.entrega_arido_id).join(
+        ReporteCuentaCorriente, ReporteCuentaCorriente.id == ReporteItemArido.reporte_id
+    ).filter(ReporteCuentaCorriente.estado == 'pagado').subquery()
+
     # Obtener entregas de áridos en el período con precio_unitario desde la BD
     query_aridos = db.query(
         EntregaArido.tipo_arido,
@@ -110,7 +122,8 @@ def get_resumen_proyecto(
     ).filter(
         EntregaArido.proyecto_id == proyecto_id,
         EntregaArido.fecha_entrega >= periodo_inicio,
-        EntregaArido.fecha_entrega <= periodo_fin
+        EntregaArido.fecha_entrega <= periodo_fin,
+        EntregaArido.id.notin_(aridos_pagados)
     )
 
     # Aplicar filtro de tipos de áridos si se especifica
@@ -139,6 +152,11 @@ def get_resumen_proyecto(
         total_aridos_m3 += cantidad
         total_importe_aridos += importe
 
+    # IDs de reportes laborales ya incluidos en un reporte pagado
+    horas_pagadas = db.query(ReporteItemHora.reporte_laboral_id).join(
+        ReporteCuentaCorriente, ReporteCuentaCorriente.id == ReporteItemHora.reporte_id
+    ).filter(ReporteCuentaCorriente.estado == 'pagado').subquery()
+
     # Obtener horas de máquinas en el período con tarifa_hora desde la BD
     query_horas = db.query(
         Maquina.id,
@@ -150,7 +168,8 @@ def get_resumen_proyecto(
     ).filter(
         ReporteLaboral.proyecto_id == proyecto_id,
         ReporteLaboral.fecha_asignacion >= periodo_inicio,
-        ReporteLaboral.fecha_asignacion <= periodo_fin
+        ReporteLaboral.fecha_asignacion <= periodo_fin,
+        ReporteLaboral.id.notin_(horas_pagadas)
     )
 
     # Aplicar filtro de máquinas si se especifica
