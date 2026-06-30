@@ -63,7 +63,7 @@ class UsuarioUpdate(BaseModel):
     """Schema para actualizar usuarios - todos los campos opcionales"""
     nombre: Optional[str] = None
     email: Optional[EmailStr] = None
-    hash_contrasena: Optional[str] = None  # ← Opcional para actualización
+    hash_contrasena: Optional[str] = Field(default=None, min_length=8)
     estado: Optional[bool] = None
     roles: Optional[List[str]] = None
     fecha_creacion: Optional[datetime] = None

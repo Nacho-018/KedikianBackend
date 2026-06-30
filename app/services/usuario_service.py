@@ -3,6 +3,7 @@ from app.schemas.schemas import UsuarioSchema, UsuarioOut, UsuarioCreate
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from passlib.context import CryptContext
+from datetime import datetime, timezone
 
 # Servicio para operaciones de Usuario
 
@@ -33,7 +34,6 @@ def get_usuario(db: Session, usuario_id: int) -> Optional[UsuarioOut]:
     return None
 
 def create_usuario(db: Session, usuario: UsuarioCreate) -> UsuarioOut:
-    # Convertir la lista de roles a string para guardar en la base de datos
     roles_str = ','.join(usuario.roles)
     hashed_password = pwd_context.hash(usuario.hash_contrasena)
     nuevo_usuario = Usuario(
@@ -42,7 +42,7 @@ def create_usuario(db: Session, usuario: UsuarioCreate) -> UsuarioOut:
         hash_contrasena=hashed_password,
         estado=usuario.estado,
         roles=roles_str,
-        fecha_creacion=usuario.fecha_creacion
+        fecha_creacion=usuario.fecha_creacion or datetime.now(timezone.utc),
     )
     db.add(nuevo_usuario)
     db.commit()
@@ -60,8 +60,9 @@ def create_usuario(db: Session, usuario: UsuarioCreate) -> UsuarioOut:
 def update_usuario(db: Session, usuario_id: int, usuario: UsuarioSchema) -> Optional[UsuarioOut]:
     existing_usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if existing_usuario:
-        data = usuario.model_dump()
-        # Convertir lista de roles a string si existe
+        data = usuario.model_dump(exclude_none=True)
+        if 'hash_contrasena' in data and data['hash_contrasena']:
+            data['hash_contrasena'] = pwd_context.hash(data['hash_contrasena'])
         if 'roles' in data and isinstance(data['roles'], list):
             data['roles'] = ','.join(data['roles'])
         for field, value in data.items():
