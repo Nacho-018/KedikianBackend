@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime, date
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, Literal
 import base64
 # Mantenimiento
 class MantenimientoBase(BaseModel):
@@ -1058,18 +1058,28 @@ class ReporteCuentaCorrienteOut(ReporteCuentaCorrienteBase):
         from_attributes = True
 
 # Schemas para el resumen de proyecto con precios
+# Un registro = una fila. No hay agrupación; cada fila corresponde a
+# una EntregaArido o un ReporteLaboral individual.
 class DetalleAridoConPrecio(BaseModel):
+    id: int
+    entrega_arido_id: int
     tipo_arido: str
     cantidad: float  # m³
-    precio_unitario: float  # precio por m³
+    precio_unitario: float  # precio por m³ (0 si no hay precio configurado)
     importe: float  # cantidad * precio_unitario
+    fecha: date
+    precio_configurado: bool  # False → precio pendiente de configurar
 
 class DetalleHorasConTarifa(BaseModel):
+    id: int
+    reporte_laboral_id: int
     maquina_id: int
     maquina_nombre: str
-    total_horas: float
-    tarifa_hora: float  # tarifa por hora
+    total_horas: float  # horas del turno individual
+    tarifa_hora: float  # tarifa por hora (0 si no configurada)
     importe: float  # total_horas * tarifa_hora
+    fecha: date
+    precio_configurado: bool
 
 class ResumenProyectoSchema(BaseModel):
     proyecto_id: int
@@ -1102,11 +1112,16 @@ class TarifaMaquinaSchema(BaseModel):
     tarifa_hora: float
 
 # Schema para actualizar precio de áridos por período
+# alcance:
+#   "solo_este" → actualiza solo el registro con entrega_arido_id
+#   "todo_periodo" → actualiza todos los registros del tipo en el rango + upsert catálogo
 class ActualizarPrecioAridoRequest(BaseModel):
     tipo_arido: str = Field(..., description="Tipo de árido a actualizar")
     nuevo_precio: float = Field(..., gt=0, description="Nuevo precio unitario")
     periodo_inicio: date = Field(..., description="Fecha de inicio del período")
     periodo_fin: date = Field(..., description="Fecha de fin del período")
+    alcance: Literal["solo_este", "todo_periodo", "todo_proyecto"] = Field(default="todo_periodo")
+    entrega_arido_id: Optional[int] = Field(default=None, description="Requerido si alcance = solo_este")
 
 class ActualizarPrecioAridoResponse(BaseModel):
     registros_actualizados: int
@@ -1122,6 +1137,8 @@ class ActualizarTarifaMaquinaRequest(BaseModel):
     nueva_tarifa: float = Field(..., gt=0, description="Nueva tarifa por hora")
     periodo_inicio: date = Field(..., description="Fecha de inicio del período")
     periodo_fin: date = Field(..., description="Fecha de fin del período")
+    alcance: Literal["solo_este", "todo_periodo", "todo_proyecto"] = Field(default="todo_periodo")
+    reporte_laboral_id: Optional[int] = Field(default=None, description="Requerido si alcance = solo_este")
 
 class ActualizarTarifaMaquinaResponse(BaseModel):
     registros_actualizados: int
@@ -1186,6 +1203,37 @@ class ReporteCuentaCorrienteConDetalleOut(ReporteCuentaCorrienteOut):
     """Response que incluye los items individuales del reporte"""
     items_aridos: List[ItemAridoDetalle] = []
     items_horas: List[ItemHoraDetalle] = []
+
+
+# ============= CATÁLOGO DE PRECIOS/TARIFAS POR PROYECTO =============
+class PrecioAridoProyectoOut(BaseModel):
+    id: int
+    proyecto_id: int
+    tipo_arido: str
+    precio_unitario: float
+
+    class Config:
+        from_attributes = True
+
+
+class PrecioAridoProyectoUpsert(BaseModel):
+    tipo_arido: str
+    precio_unitario: float = Field(..., ge=0)
+
+
+class TarifaMaquinaProyectoOut(BaseModel):
+    id: int
+    proyecto_id: int
+    maquina_id: int
+    tarifa_hora: float
+
+    class Config:
+        from_attributes = True
+
+
+class TarifaMaquinaProyectoUpsert(BaseModel):
+    maquina_id: int
+    tarifa_hora: float = Field(..., ge=0)
 
 # ============= CLIENTES =============
 class ClienteCreate(BaseModel):

@@ -21,3 +21,5 @@ from .reporte_items import ReporteItemArido, ReporteItemHora
 from .pago_reporte import PagoReporte
 from .cliente import Cliente
 from .cotizacion import Cotizacion, CotizacionItem
+from .precio_arido_proyecto import PrecioAridoProyecto
+from .tarifa_maquina_proyecto import TarifaMaquinaProyecto

@@ -5,11 +5,35 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy import extract, func
 from fastapi import HTTPException
+import re
 import traceback
+
+
+_UNIDAD_PATTERN = re.compile(r"\s*\(\s*m\s*[3³]\s*\)\s*", re.IGNORECASE)
+
+
+def normalizar_tipo_arido(tipo: Optional[str]) -> Optional[str]:
+    """Quita sufijo (m3)/(m³) y espacios extra para unificar tipos entre operario y admin."""
+    if tipo is None:
+        return tipo
+    limpio = _UNIDAD_PATTERN.sub("", tipo).strip()
+    return " ".join(limpio.split())
+
 
 def create_entrega_arido(db: Session, entrega_data: EntregaAridoCreate) -> EntregaAridoOut:
     try:
-        entrega = EntregaArido(**entrega_data.dict())
+        payload = entrega_data.dict()
+        if "tipo_arido" in payload:
+            payload["tipo_arido"] = normalizar_tipo_arido(payload["tipo_arido"])
+        # Si no viene precio_unitario, buscarlo en el catálogo por proyecto
+        if payload.get("precio_unitario") is None and payload.get("proyecto_id") and payload.get("tipo_arido"):
+            from app.services.cuenta_corriente_service import get_precio_arido_proyecto
+            precio_catalogo = get_precio_arido_proyecto(
+                db, payload["proyecto_id"], payload["tipo_arido"]
+            )
+            if precio_catalogo is not None:
+                payload["precio_unitario"] = precio_catalogo
+        entrega = EntregaArido(**payload)
         db.add(entrega)
         db.commit()
         db.refresh(entrega)
@@ -60,6 +84,8 @@ def update_entrega_arido(db: Session, entrega_id: int, entrega_data: EntregaArid
             return None
         
         for key, value in entrega_data.dict(exclude_unset=True).items():
+            if key == "tipo_arido":
+                value = normalizar_tipo_arido(value)
             setattr(entrega, key, value)
         
         db.commit()

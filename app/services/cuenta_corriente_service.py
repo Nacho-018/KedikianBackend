@@ -1,4 +1,15 @@
-from app.db.models import ReporteCuentaCorriente, Proyecto, EntregaArido, ReporteLaboral, Maquina, ReporteItemArido, ReporteItemHora, PagoReporte
+from app.db.models import (
+    ReporteCuentaCorriente,
+    Proyecto,
+    EntregaArido,
+    ReporteLaboral,
+    Maquina,
+    ReporteItemArido,
+    ReporteItemHora,
+    PagoReporte,
+    PrecioAridoProyecto,
+    TarifaMaquinaProyecto,
+)
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
@@ -26,60 +37,75 @@ from datetime import datetime, date
 from decimal import Decimal
 import unicodedata
 
-# ============= PRECIOS DE ÁRIDOS POR M³ =============
-# Estos son valores por defecto que se usan como fallback
-# Si el registro tiene precio_unitario en la BD, se usa ese valor
-PRECIOS_ARIDOS: Dict[str, float] = {
-    "Arena Fina": 54000.0,
-    "Granza": 54000.0,
-    "Arena Común": 33680.0,
-    "Relleno": 16000.0,
-    "Relleno (m3)": 16000.0,
-    "Tierra Negra": 16000.0,
-    "Piedra": 12000.0,
-    "0.20": 8000.0,
-    "Blinder": 10000.0,
-    "Arena Lavada": 33680.0
-}
+# Los precios de árido y tarifas de máquina viven en las tablas
+# precio_arido_proyecto y tarifa_maquina_proyecto (por proyecto).
+# No hay defaults hardcodeados: si no está configurado, el importe es 0
+# y el registro se marca como precio_configurado=False para que el admin lo vea.
+
+# Constantes vacías dejadas por compatibilidad con módulos que aún las importan
+# (ej. cotizacion_service). No se usan para calcular importes de cuenta corriente.
+PRECIOS_ARIDOS: Dict[str, float] = {}
+TARIFAS_MAQUINAS: Dict[str, float] = {}
+
 
 def _normalizar(texto: str) -> str:
     return unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('utf-8').lower().strip()
 
-PRECIOS_ARIDOS_NORM: Dict[str, float] = {_normalizar(k): v for k, v in PRECIOS_ARIDOS.items()}
-
-
-# ============= TARIFAS DE MÁQUINAS POR HORA =============
-# IMPORTANTE: Usa los nombres EXACTOS de las máquinas como aparecen en la BD
-# Para obtener los nombres: SELECT id, nombre FROM maquina;
-#
-# Formato: "Nombre_Exacto_Maquina": tarifa_por_hora
-#
-# INSTRUCCIONES:
-# 1. Consulta tus máquinas en la BD
-# 2. Reemplaza estos ejemplos con tus máquinas reales
-# 3. Usa el nombre EXACTO (case-sensitive)
-# 4. La tarifa "default" se usa si la máquina no está en la lista
-
-TARIFAS_MAQUINAS: Dict[str, float] = {
-    # ===== TARIFA POR DEFECTO =====
-    "default": 15000.0,  # Se usa si la máquina no está en la lista
-    "BOBCAT 2018 S650.": 700000,
-    "BOBCAT S530 2017": 700000,
-    "EXCAVADORA 2020 SANY EU50.": 100000,
-    "EXCAVADORA 2023 XCMG E60.": 100000,
-    "EXCAVADORA 2022 LONKING 6150.": 150000,
-    "EXCAVADORA 2015 LONKING 6150.": 150000,
-    "PALA 2022 SINOMACH 933.": 100000
-}
 
 def get_precio_arido(tipo_arido: str) -> float:
-    """Obtiene el precio por m³ de un tipo de árido"""
-    return PRECIOS_ARIDOS_NORM.get(_normalizar(tipo_arido), 0.0)
+    """Compat: sin catálogo global de precios. Devuelve 0."""
+    return 0.0
+
 
 def get_tarifa_maquina(maquina_nombre: str) -> float:
-    """Obtiene la tarifa por hora de una máquina"""
-    # Primero intenta buscar por nombre específico, si no usa la tarifa default
-    return TARIFAS_MAQUINAS.get(maquina_nombre, TARIFAS_MAQUINAS["default"])
+    """Compat: sin catálogo global de tarifas. Devuelve 0."""
+    return 0.0
+
+
+def get_precio_arido_proyecto(db: Session, proyecto_id: int, tipo_arido: str) -> Optional[float]:
+    """Retorna precio unitario configurado para (proyecto, tipo_arido) o None."""
+    row = db.query(PrecioAridoProyecto).filter(
+        PrecioAridoProyecto.proyecto_id == proyecto_id,
+        PrecioAridoProyecto.tipo_arido == tipo_arido,
+    ).first()
+    return float(row.precio_unitario) if row else None
+
+
+def get_tarifa_maquina_proyecto(db: Session, proyecto_id: int, maquina_id: int) -> Optional[float]:
+    """Retorna tarifa por hora configurada para (proyecto, maquina) o None."""
+    row = db.query(TarifaMaquinaProyecto).filter(
+        TarifaMaquinaProyecto.proyecto_id == proyecto_id,
+        TarifaMaquinaProyecto.maquina_id == maquina_id,
+    ).first()
+    return float(row.tarifa_hora) if row else None
+
+
+def upsert_precio_arido_proyecto(db: Session, proyecto_id: int, tipo_arido: str, precio: float) -> PrecioAridoProyecto:
+    row = db.query(PrecioAridoProyecto).filter(
+        PrecioAridoProyecto.proyecto_id == proyecto_id,
+        PrecioAridoProyecto.tipo_arido == tipo_arido,
+    ).first()
+    if row:
+        row.precio_unitario = precio
+    else:
+        row = PrecioAridoProyecto(proyecto_id=proyecto_id, tipo_arido=tipo_arido, precio_unitario=precio)
+        db.add(row)
+    db.flush()
+    return row
+
+
+def upsert_tarifa_maquina_proyecto(db: Session, proyecto_id: int, maquina_id: int, tarifa: float) -> TarifaMaquinaProyecto:
+    row = db.query(TarifaMaquinaProyecto).filter(
+        TarifaMaquinaProyecto.proyecto_id == proyecto_id,
+        TarifaMaquinaProyecto.maquina_id == maquina_id,
+    ).first()
+    if row:
+        row.tarifa_hora = tarifa
+    else:
+        row = TarifaMaquinaProyecto(proyecto_id=proyecto_id, maquina_id=maquina_id, tarifa_hora=tarifa)
+        db.add(row)
+    db.flush()
+    return row
 
 def get_resumen_proyecto(
     db: Session,
@@ -109,93 +135,113 @@ def get_resumen_proyecto(
     if not proyecto:
         return None
 
-    # IDs de entregas ya incluidas en un reporte pagado
-    aridos_pagados = db.query(ReporteItemArido.entrega_arido_id).join(
+    # IDs de entregas ya incluidas en un reporte pagado (se excluyen del pendiente)
+    aridos_pagados_subq = db.query(ReporteItemArido.entrega_arido_id).join(
         ReporteCuentaCorriente, ReporteCuentaCorriente.id == ReporteItemArido.reporte_id
     ).filter(ReporteCuentaCorriente.estado == 'pagado').subquery()
 
-    # Obtener entregas de áridos en el período con precio_unitario desde la BD
-    query_aridos = db.query(
-        EntregaArido.tipo_arido,
-        func.sum(EntregaArido.cantidad).label('total_cantidad'),
-        func.avg(EntregaArido.precio_unitario).label('precio_promedio')
-    ).filter(
+    # Entregas de árido individuales del período
+    query_aridos = db.query(EntregaArido).filter(
         EntregaArido.proyecto_id == proyecto_id,
         EntregaArido.fecha_entrega >= periodo_inicio,
         EntregaArido.fecha_entrega <= periodo_fin,
-        EntregaArido.id.notin_(aridos_pagados)
+        EntregaArido.id.notin_(aridos_pagados_subq),
     )
-
-    # Aplicar filtro de tipos de áridos si se especifica
-    if tipos_aridos and len(tipos_aridos) > 0:
+    if tipos_aridos:
         query_aridos = query_aridos.filter(EntregaArido.tipo_arido.in_(tipos_aridos))
+    entregas_aridos = query_aridos.order_by(EntregaArido.fecha_entrega.asc(), EntregaArido.id.asc()).all()
 
-    entregas_aridos = query_aridos.group_by(EntregaArido.tipo_arido).all()
+    # Cache de precios configurados por proyecto (evita 1 query por fila)
+    precios_por_tipo: Dict[str, float] = {}
+    for row in db.query(PrecioAridoProyecto).filter(PrecioAridoProyecto.proyecto_id == proyecto_id).all():
+        precios_por_tipo[row.tipo_arido] = float(row.precio_unitario)
 
-    # Calcular detalles de áridos con precios REALES de la BD
-    detalles_aridos = []
+    detalles_aridos: List[DetalleAridoConPrecio] = []
     total_aridos_m3 = 0.0
     total_importe_aridos = 0.0
 
-    for tipo_arido, cantidad, precio_promedio in entregas_aridos:
-        # Usar el precio de la BD, si es None usar el diccionario como fallback
-        precio_unitario = precio_promedio if precio_promedio is not None else get_precio_arido(tipo_arido)
-        importe = cantidad * precio_unitario
+    for entrega in entregas_aridos:
+        cantidad = float(entrega.cantidad or 0)
+        # Precio efectivo: el guardado en el registro (histórico) tiene prioridad;
+        # si es NULL, usar catálogo por proyecto; si tampoco hay, 0.
+        precio_registro = entrega.precio_unitario
+        precio_catalogo = precios_por_tipo.get(entrega.tipo_arido)
+        if precio_registro is not None:
+            precio_efectivo = float(precio_registro)
+            configurado = True
+        elif precio_catalogo is not None:
+            precio_efectivo = precio_catalogo
+            configurado = True
+        else:
+            precio_efectivo = 0.0
+            configurado = False
+        importe = cantidad * precio_efectivo
 
         detalles_aridos.append(DetalleAridoConPrecio(
-            tipo_arido=tipo_arido,
+            id=entrega.id,
+            entrega_arido_id=entrega.id,
+            tipo_arido=entrega.tipo_arido,
             cantidad=cantidad,
-            precio_unitario=precio_unitario,
-            importe=importe
+            precio_unitario=precio_efectivo,
+            importe=importe,
+            fecha=entrega.fecha_entrega.date() if hasattr(entrega.fecha_entrega, 'date') else entrega.fecha_entrega,
+            precio_configurado=configurado,
         ))
-
         total_aridos_m3 += cantidad
         total_importe_aridos += importe
 
     # IDs de reportes laborales ya incluidos en un reporte pagado
-    horas_pagadas = db.query(ReporteItemHora.reporte_laboral_id).join(
+    horas_pagadas_subq = db.query(ReporteItemHora.reporte_laboral_id).join(
         ReporteCuentaCorriente, ReporteCuentaCorriente.id == ReporteItemHora.reporte_id
     ).filter(ReporteCuentaCorriente.estado == 'pagado').subquery()
 
-    # Obtener horas de máquinas en el período con tarifa_hora desde la BD
-    query_horas = db.query(
-        Maquina.id,
-        Maquina.nombre,
-        func.sum(ReporteLaboral.horas_turno).label('total_horas'),
-        func.avg(ReporteLaboral.tarifa_hora).label('tarifa_promedio')
-    ).join(
-        ReporteLaboral, ReporteLaboral.maquina_id == Maquina.id
+    query_horas = db.query(ReporteLaboral, Maquina.nombre.label('maquina_nombre')).join(
+        Maquina, Maquina.id == ReporteLaboral.maquina_id
     ).filter(
         ReporteLaboral.proyecto_id == proyecto_id,
         ReporteLaboral.fecha_asignacion >= periodo_inicio,
         ReporteLaboral.fecha_asignacion <= periodo_fin,
-        ReporteLaboral.id.notin_(horas_pagadas)
+        ReporteLaboral.id.notin_(horas_pagadas_subq),
     )
+    if maquinas_ids:
+        query_horas = query_horas.filter(ReporteLaboral.maquina_id.in_(maquinas_ids))
+    reportes_labor = query_horas.order_by(ReporteLaboral.fecha_asignacion.asc(), ReporteLaboral.id.asc()).all()
 
-    # Aplicar filtro de máquinas si se especifica
-    if maquinas_ids and len(maquinas_ids) > 0:
-        query_horas = query_horas.filter(Maquina.id.in_(maquinas_ids))
+    # Cache de tarifas configuradas por proyecto
+    tarifas_por_maquina: Dict[int, float] = {}
+    for row in db.query(TarifaMaquinaProyecto).filter(TarifaMaquinaProyecto.proyecto_id == proyecto_id).all():
+        tarifas_por_maquina[row.maquina_id] = float(row.tarifa_hora)
 
-    horas_maquinas = query_horas.group_by(Maquina.id, Maquina.nombre).all()
-
-    # Calcular detalles de horas con tarifas REALES de la BD
-    detalles_horas = []
+    detalles_horas: List[DetalleHorasConTarifa] = []
     total_horas = 0.0
     total_importe_horas = 0.0
 
-    for maquina_id, maquina_nombre, horas, tarifa_promedio in horas_maquinas:
-        # Usar la tarifa de la BD, si es None usar el diccionario como fallback
-        tarifa_hora = tarifa_promedio if tarifa_promedio is not None else get_tarifa_maquina(maquina_nombre)
-        importe = horas * tarifa_hora
+    for reporte_laboral, maquina_nombre in reportes_labor:
+        horas = float(reporte_laboral.horas_turno or 0)
+        tarifa_registro = reporte_laboral.tarifa_hora
+        tarifa_catalogo = tarifas_por_maquina.get(reporte_laboral.maquina_id)
+        if tarifa_registro is not None:
+            tarifa_efectiva = float(tarifa_registro)
+            configurado = True
+        elif tarifa_catalogo is not None:
+            tarifa_efectiva = tarifa_catalogo
+            configurado = True
+        else:
+            tarifa_efectiva = 0.0
+            configurado = False
+        importe = horas * tarifa_efectiva
 
         detalles_horas.append(DetalleHorasConTarifa(
-            maquina_id=maquina_id,
+            id=reporte_laboral.id,
+            reporte_laboral_id=reporte_laboral.id,
+            maquina_id=reporte_laboral.maquina_id,
             maquina_nombre=maquina_nombre,
             total_horas=horas,
-            tarifa_hora=tarifa_hora,
-            importe=importe
+            tarifa_hora=tarifa_efectiva,
+            importe=importe,
+            fecha=reporte_laboral.fecha_asignacion.date() if hasattr(reporte_laboral.fecha_asignacion, 'date') else reporte_laboral.fecha_asignacion,
+            precio_configurado=configurado,
         ))
-
         total_horas += horas
         total_importe_horas += importe
 
@@ -536,8 +582,12 @@ def _get_items_aridos_filtrados(
 
     items_aridos = []
     for arido in entregas_aridos:
-        precio_unitario = arido.precio_unitario if arido.precio_unitario is not None else get_precio_arido(arido.tipo_arido)
-        importe = arido.cantidad * precio_unitario
+        if arido.precio_unitario is not None:
+            precio_unitario = float(arido.precio_unitario)
+        else:
+            catalogo = get_precio_arido_proyecto(db, arido.proyecto_id, arido.tipo_arido)
+            precio_unitario = catalogo if catalogo is not None else 0.0
+        importe = float(arido.cantidad or 0) * precio_unitario
 
         items_aridos.append(ItemAridoDetalle(
             id=arido.id,
@@ -579,8 +629,12 @@ def _get_items_horas_filtrados(
 
     items_horas = []
     for reporte_hora in reportes_horas:
-        tarifa_hora = reporte_hora.tarifa_hora if reporte_hora.tarifa_hora is not None else get_tarifa_maquina(reporte_hora.maquina.nombre)
-        importe = reporte_hora.horas_turno * tarifa_hora
+        if reporte_hora.tarifa_hora is not None:
+            tarifa_hora = float(reporte_hora.tarifa_hora)
+        else:
+            catalogo = get_tarifa_maquina_proyecto(db, reporte_hora.proyecto_id, reporte_hora.maquina_id)
+            tarifa_hora = catalogo if catalogo is not None else 0.0
+        importe = float(reporte_hora.horas_turno or 0) * tarifa_hora
 
         items_horas.append(ItemHoraDetalle(
             id=reporte_hora.id,
@@ -629,8 +683,12 @@ def get_detalle_reporte(
     # Convertir áridos a ItemAridoDetalle
     items_aridos = []
     for arido in entregas_aridos:
-        precio_unitario = arido.precio_unitario if arido.precio_unitario is not None else get_precio_arido(arido.tipo_arido)
-        importe = arido.cantidad * precio_unitario
+        if arido.precio_unitario is not None:
+            precio_unitario = float(arido.precio_unitario)
+        else:
+            catalogo = get_precio_arido_proyecto(db, arido.proyecto_id, arido.tipo_arido)
+            precio_unitario = catalogo if catalogo is not None else 0.0
+        importe = float(arido.cantidad or 0) * precio_unitario
 
         items_aridos.append(ItemAridoDetalle(
             id=arido.id,
@@ -660,8 +718,12 @@ def get_detalle_reporte(
     # Convertir horas a ItemHoraDetalle
     items_horas = []
     for reporte_hora in reportes_horas:
-        tarifa_hora = reporte_hora.tarifa_hora if reporte_hora.tarifa_hora is not None else get_tarifa_maquina(reporte_hora.maquina.nombre)
-        importe = reporte_hora.horas_turno * tarifa_hora
+        if reporte_hora.tarifa_hora is not None:
+            tarifa_hora = float(reporte_hora.tarifa_hora)
+        else:
+            catalogo = get_tarifa_maquina_proyecto(db, reporte_hora.proyecto_id, reporte_hora.maquina_id)
+            tarifa_hora = catalogo if catalogo is not None else 0.0
+        importe = float(reporte_hora.horas_turno or 0) * tarifa_hora
 
         items_horas.append(ItemHoraDetalle(
             id=reporte_hora.id,

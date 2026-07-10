@@ -87,8 +87,16 @@ def get_reporte_laboral(db: Session, reporte_id: int) -> Optional[ReporteLaboral
 
 
 def create_reporte_laboral(db: Session, reporte: ReporteLaboralCreate) -> ReporteLaboralOut:
-    # Crear el nuevo reporte
-    nuevo_reporte = ReporteLaboral(**reporte.model_dump())
+    payload = reporte.model_dump()
+    # Si no viene tarifa_hora, buscar en catálogo por proyecto
+    if payload.get("tarifa_hora") is None and payload.get("proyecto_id") and payload.get("maquina_id"):
+        from app.services.cuenta_corriente_service import get_tarifa_maquina_proyecto
+        tarifa_catalogo = get_tarifa_maquina_proyecto(
+            db, payload["proyecto_id"], payload["maquina_id"]
+        )
+        if tarifa_catalogo is not None:
+            payload["tarifa_hora"] = tarifa_catalogo
+    nuevo_reporte = ReporteLaboral(**payload)
     db.add(nuevo_reporte)
     db.flush()  # Obtener el ID del reporte antes de commit
 

@@ -3,7 +3,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Optional
 from datetime import date, datetime
 from app.db.dependencies import get_db
-from app.db.models import Proyecto, EntregaArido, ReporteLaboral
+from app.db.models import (
+    Proyecto,
+    EntregaArido,
+    ReporteLaboral,
+    Maquina,
+    PrecioAridoProyecto,
+    TarifaMaquinaProyecto,
+)
 from app.schemas.schemas import (
     ReporteCuentaCorrienteCreate,
     ReporteCuentaCorrienteUpdate,
@@ -22,7 +29,11 @@ from app.schemas.schemas import (
     ReporteCuentaCorrienteConDetalleOut,
     PagoReporteCreate,
     PagoReporteOut,
-    RegistrarPagoResponse
+    RegistrarPagoResponse,
+    PrecioAridoProyectoOut,
+    PrecioAridoProyectoUpsert,
+    TarifaMaquinaProyectoOut,
+    TarifaMaquinaProyectoUpsert,
 )
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -447,27 +458,31 @@ def exportar_reporte_excel(
         df_info = pd.DataFrame(info_data)
         df_info.to_excel(writer, sheet_name='Información', index=False)
 
-        # Detalle de áridos
+        # Detalle diario de áridos (1 fila = 1 entrega)
         if resumen.aridos:
             aridos_data = {
+                'Fecha': [a.fecha.strftime('%d/%m/%Y') for a in resumen.aridos],
                 'Tipo Árido': [a.tipo_arido for a in resumen.aridos],
                 'Cantidad (m³)': [a.cantidad for a in resumen.aridos],
                 'Precio Unitario': [a.precio_unitario for a in resumen.aridos],
-                'Importe': [a.importe for a in resumen.aridos]
+                'Importe': [a.importe for a in resumen.aridos],
+                'Estado Precio': ['Configurado' if a.precio_configurado else 'SIN PRECIO' for a in resumen.aridos],
             }
             df_aridos = pd.DataFrame(aridos_data)
-            df_aridos.to_excel(writer, sheet_name='Áridos', index=False)
+            df_aridos.to_excel(writer, sheet_name='Detalle Áridos', index=False)
 
-        # Detalle de horas de máquinas
+        # Detalle diario de horas de máquinas (1 fila = 1 turno)
         if resumen.horas_maquinas:
             horas_data = {
+                'Fecha': [h.fecha.strftime('%d/%m/%Y') for h in resumen.horas_maquinas],
                 'Máquina': [h.maquina_nombre for h in resumen.horas_maquinas],
-                'Total Horas': [h.total_horas for h in resumen.horas_maquinas],
+                'Horas': [h.total_horas for h in resumen.horas_maquinas],
                 'Tarifa/Hora': [h.tarifa_hora for h in resumen.horas_maquinas],
-                'Importe': [h.importe for h in resumen.horas_maquinas]
+                'Importe': [h.importe for h in resumen.horas_maquinas],
+                'Estado Tarifa': ['Configurada' if h.precio_configurado else 'SIN TARIFA' for h in resumen.horas_maquinas],
             }
             df_horas = pd.DataFrame(horas_data)
-            df_horas.to_excel(writer, sheet_name='Horas Máquinas', index=False)
+            df_horas.to_excel(writer, sheet_name='Detalle Horas', index=False)
 
         # Resumen de totales de servicios
         totales_data = {
@@ -622,19 +637,20 @@ def exportar_reporte_pdf(
         elements.append(info_para)
         elements.append(Spacer(1, 0.3*inch))
 
-        # Tabla de áridos
+        # Tabla de áridos día-a-día
         if resumen.aridos:
             aridos_title = Paragraph("<b>DETALLE DE ÁRIDOS</b>", styles['Heading2'])
             elements.append(aridos_title)
             elements.append(Spacer(1, 0.1*inch))
 
-            aridos_data = [['Tipo Árido', 'Cantidad (m³)', 'Precio/m³', 'Importe']]
+            aridos_data = [['Fecha', 'Tipo Árido', 'Cantidad (m³)', 'Precio/m³', 'Importe']]
             for arido in resumen.aridos:
                 aridos_data.append([
+                    arido.fecha.strftime('%d/%m/%Y'),
                     arido.tipo_arido,
                     f"{arido.cantidad:.2f}",
-                    f"${arido.precio_unitario:,.2f}",
-                    f"${arido.importe:,.2f}"
+                    f"${arido.precio_unitario:,.2f}" if arido.precio_configurado else "Sin precio",
+                    f"${arido.importe:,.2f}",
                 ])
 
             aridos_table = Table(aridos_data)
@@ -643,27 +659,28 @@ def exportar_reporte_pdf(
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             elements.append(aridos_table)
             elements.append(Spacer(1, 0.3*inch))
 
-        # Tabla de horas de máquinas
+        # Tabla de horas de máquinas día-a-día
         if resumen.horas_maquinas:
             horas_title = Paragraph("<b>DETALLE DE HORAS DE MÁQUINAS</b>", styles['Heading2'])
             elements.append(horas_title)
             elements.append(Spacer(1, 0.1*inch))
 
-            horas_data = [['Máquina', 'Total Horas', 'Tarifa/Hora', 'Importe']]
+            horas_data = [['Fecha', 'Máquina', 'Horas', 'Tarifa/Hora', 'Importe']]
             for hora in resumen.horas_maquinas:
                 horas_data.append([
+                    hora.fecha.strftime('%d/%m/%Y'),
                     hora.maquina_nombre,
                     f"{hora.total_horas:.2f}",
-                    f"${hora.tarifa_hora:,.2f}",
-                    f"${hora.importe:,.2f}"
+                    f"${hora.tarifa_hora:,.2f}" if hora.precio_configurado else "Sin tarifa",
+                    f"${hora.importe:,.2f}",
                 ])
 
             horas_table = Table(horas_data)
@@ -672,8 +689,8 @@ def exportar_reporte_pdf(
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('FONTSIZE', (0, 0), (-1, 0), 11),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
                 ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
@@ -829,76 +846,71 @@ async def actualizar_precio_arido(
     db: Session = Depends(get_db)
 ):
     """
-    Actualiza el precio unitario de todos los registros de áridos
-    de un tipo específico en un período determinado.
-
-    Args:
-        proyecto_id: ID del proyecto
-        data: Datos de actualización (tipo_arido, nuevo_precio, periodo_inicio, periodo_fin)
-        db: Sesión de base de datos
-
-    Returns:
-        Resumen de la actualización con información de precios e importes
-
-    Raises:
-        HTTPException 404: Si el proyecto no existe
-        HTTPException 400: Si no hay registros que actualizar o el precio no es válido
+    Actualiza precio unitario de áridos según alcance:
+    - solo_este: actualiza el registro identificado por data.entrega_arido_id.
+    - todo_periodo: actualiza todos los registros del tipo en el rango + upsert catálogo por proyecto.
     """
     try:
-        # Verificar que el proyecto existe
         proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
         if not proyecto:
             raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
-        # Validar nuevo precio
         if data.nuevo_precio <= 0:
             raise HTTPException(status_code=400, detail="El precio debe ser mayor a 0")
 
-        # Validar fechas
         if data.periodo_inicio > data.periodo_fin:
             raise HTTPException(
                 status_code=400,
                 detail="La fecha de inicio debe ser anterior a la fecha de fin"
             )
 
-        # Buscar todos los registros de áridos que coinciden con los criterios
-        registros = db.query(EntregaArido).filter(
-            EntregaArido.proyecto_id == proyecto_id,
-            EntregaArido.tipo_arido == data.tipo_arido,
-            EntregaArido.fecha_entrega >= datetime.combine(data.periodo_inicio, datetime.min.time()),
-            EntregaArido.fecha_entrega <= datetime.combine(data.periodo_fin, datetime.max.time())
-        ).all()
-
-        if not registros:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No se encontraron registros de árido '{data.tipo_arido}' en el período especificado"
+        if data.alcance == "solo_este":
+            if data.entrega_arido_id is None:
+                raise HTTPException(status_code=400, detail="entrega_arido_id es requerido con alcance solo_este")
+            registro = db.query(EntregaArido).filter(
+                EntregaArido.id == data.entrega_arido_id,
+                EntregaArido.proyecto_id == proyecto_id,
+            ).first()
+            if not registro:
+                raise HTTPException(status_code=404, detail="Registro de árido no encontrado")
+            registros = [registro]
+        elif data.alcance == "todo_proyecto":
+            # Todos los registros de este tipo en el proyecto, sin filtro de fecha
+            registros = db.query(EntregaArido).filter(
+                EntregaArido.proyecto_id == proyecto_id,
+                EntregaArido.tipo_arido == data.tipo_arido,
+            ).all()
+            cuenta_corriente_service.upsert_precio_arido_proyecto(
+                db, proyecto_id, data.tipo_arido, data.nuevo_precio
+            )
+        else:
+            registros = db.query(EntregaArido).filter(
+                EntregaArido.proyecto_id == proyecto_id,
+                EntregaArido.tipo_arido == data.tipo_arido,
+                EntregaArido.fecha_entrega >= datetime.combine(data.periodo_inicio, datetime.min.time()),
+                EntregaArido.fecha_entrega <= datetime.combine(data.periodo_fin, datetime.max.time())
+            ).all()
+            # Persistir en catálogo por proyecto para futuros registros
+            cuenta_corriente_service.upsert_precio_arido_proyecto(
+                db, proyecto_id, data.tipo_arido, data.nuevo_precio
             )
 
-        # Calcular estadísticas anteriores
         registros_actualizados = len(registros)
 
-        # Calcular precio anterior promedio (solo de los registros que tienen precio)
         precios_anteriores = [r.precio_unitario for r in registros if r.precio_unitario is not None]
         precio_anterior = sum(precios_anteriores) / len(precios_anteriores) if precios_anteriores else 0.0
 
-        # Calcular importe anterior (suma de cantidad * precio_unitario)
         importe_anterior = sum(
-            (r.cantidad * r.precio_unitario) if r.precio_unitario is not None else 0.0
+            (float(r.cantidad or 0) * float(r.precio_unitario)) if r.precio_unitario is not None else 0.0
             for r in registros
         )
 
-        # Actualizar precio_unitario de cada registro
         for registro in registros:
             registro.precio_unitario = data.nuevo_precio
 
-        # Calcular importe nuevo
-        importe_nuevo = sum(r.cantidad * data.nuevo_precio for r in registros)
-
-        # Calcular diferencia
+        importe_nuevo = sum(float(r.cantidad or 0) * data.nuevo_precio for r in registros)
         diferencia = importe_nuevo - importe_anterior
 
-        # Guardar cambios
         db.commit()
 
         return ActualizarPrecioAridoResponse(
@@ -926,76 +938,70 @@ async def actualizar_tarifa_maquina(
     db: Session = Depends(get_db)
 ):
     """
-    Actualiza la tarifa por hora de todos los registros de horas
-    de una máquina específica en un período determinado.
-
-    Args:
-        proyecto_id: ID del proyecto
-        data: Datos de actualización (maquina_id, nueva_tarifa, periodo_inicio, periodo_fin)
-        db: Sesión de base de datos
-
-    Returns:
-        Resumen de la actualización con información de tarifas e importes
-
-    Raises:
-        HTTPException 404: Si el proyecto no existe
-        HTTPException 400: Si no hay registros que actualizar o la tarifa no es válida
+    Actualiza tarifa por hora según alcance:
+    - solo_este: actualiza el registro identificado por data.reporte_laboral_id.
+    - todo_periodo: actualiza todos los registros de la máquina en el rango + upsert catálogo.
     """
     try:
-        # Verificar que el proyecto existe
         proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
         if not proyecto:
             raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
-        # Validar nueva tarifa
         if data.nueva_tarifa <= 0:
             raise HTTPException(status_code=400, detail="La tarifa debe ser mayor a 0")
 
-        # Validar fechas
         if data.periodo_inicio > data.periodo_fin:
             raise HTTPException(
                 status_code=400,
                 detail="La fecha de inicio debe ser anterior a la fecha de fin"
             )
 
-        # Buscar todos los registros de reportes laborales que coinciden con los criterios
-        registros = db.query(ReporteLaboral).filter(
-            ReporteLaboral.proyecto_id == proyecto_id,
-            ReporteLaboral.maquina_id == data.maquina_id,
-            ReporteLaboral.fecha_asignacion >= datetime.combine(data.periodo_inicio, datetime.min.time()),
-            ReporteLaboral.fecha_asignacion <= datetime.combine(data.periodo_fin, datetime.max.time())
-        ).all()
-
-        if not registros:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No se encontraron registros de horas para la máquina {data.maquina_id} en el período especificado"
+        if data.alcance == "solo_este":
+            if data.reporte_laboral_id is None:
+                raise HTTPException(status_code=400, detail="reporte_laboral_id es requerido con alcance solo_este")
+            registro = db.query(ReporteLaboral).filter(
+                ReporteLaboral.id == data.reporte_laboral_id,
+                ReporteLaboral.proyecto_id == proyecto_id,
+            ).first()
+            if not registro:
+                raise HTTPException(status_code=404, detail="Reporte laboral no encontrado")
+            registros = [registro]
+        elif data.alcance == "todo_proyecto":
+            # Todos los registros de esta máquina en el proyecto, sin filtro de fecha
+            registros = db.query(ReporteLaboral).filter(
+                ReporteLaboral.proyecto_id == proyecto_id,
+                ReporteLaboral.maquina_id == data.maquina_id,
+            ).all()
+            cuenta_corriente_service.upsert_tarifa_maquina_proyecto(
+                db, proyecto_id, data.maquina_id, data.nueva_tarifa
+            )
+        else:
+            registros = db.query(ReporteLaboral).filter(
+                ReporteLaboral.proyecto_id == proyecto_id,
+                ReporteLaboral.maquina_id == data.maquina_id,
+                ReporteLaboral.fecha_asignacion >= datetime.combine(data.periodo_inicio, datetime.min.time()),
+                ReporteLaboral.fecha_asignacion <= datetime.combine(data.periodo_fin, datetime.max.time())
+            ).all()
+            cuenta_corriente_service.upsert_tarifa_maquina_proyecto(
+                db, proyecto_id, data.maquina_id, data.nueva_tarifa
             )
 
-        # Calcular estadísticas anteriores
         registros_actualizados = len(registros)
 
-        # Calcular tarifa anterior promedio (solo de los registros que tienen tarifa)
         tarifas_anteriores = [r.tarifa_hora for r in registros if r.tarifa_hora is not None]
         tarifa_anterior = sum(tarifas_anteriores) / len(tarifas_anteriores) if tarifas_anteriores else 0.0
 
-        # Calcular importe anterior (suma de horas_turno * tarifa_hora)
         importe_anterior = sum(
-            (r.horas_turno * r.tarifa_hora) if r.tarifa_hora is not None else 0.0
+            (float(r.horas_turno or 0) * float(r.tarifa_hora)) if r.tarifa_hora is not None else 0.0
             for r in registros
         )
 
-        # Actualizar tarifa_hora de cada registro
         for registro in registros:
             registro.tarifa_hora = data.nueva_tarifa
 
-        # Calcular importe nuevo
-        importe_nuevo = sum(r.horas_turno * data.nueva_tarifa for r in registros)
-
-        # Calcular diferencia
+        importe_nuevo = sum(float(r.horas_turno or 0) * data.nueva_tarifa for r in registros)
         diferencia = importe_nuevo - importe_anterior
 
-        # Guardar cambios
         db.commit()
 
         return ActualizarTarifaMaquinaResponse(
@@ -1015,3 +1021,58 @@ async def actualizar_tarifa_maquina(
             status_code=500,
             detail=f"Error al actualizar tarifa de máquina: {str(e)}"
         )
+
+
+# ============= CATÁLOGO PRECIOS Y TARIFAS POR PROYECTO =============
+
+@router.get("/proyectos/{proyecto_id}/precios-aridos", response_model=List[PrecioAridoProyectoOut])
+def listar_precios_aridos_proyecto(proyecto_id: int, db: Session = Depends(get_db)):
+    proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+    if not proyecto:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    return db.query(PrecioAridoProyecto).filter(PrecioAridoProyecto.proyecto_id == proyecto_id).all()
+
+
+@router.put("/proyectos/{proyecto_id}/precios-aridos", response_model=PrecioAridoProyectoOut)
+def upsert_precio_arido_proyecto_endpoint(
+    proyecto_id: int,
+    data: PrecioAridoProyectoUpsert,
+    db: Session = Depends(get_db),
+):
+    proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+    if not proyecto:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    row = cuenta_corriente_service.upsert_precio_arido_proyecto(
+        db, proyecto_id, data.tipo_arido, data.precio_unitario
+    )
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.get("/proyectos/{proyecto_id}/tarifas-maquinas", response_model=List[TarifaMaquinaProyectoOut])
+def listar_tarifas_maquinas_proyecto(proyecto_id: int, db: Session = Depends(get_db)):
+    proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+    if not proyecto:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    return db.query(TarifaMaquinaProyecto).filter(TarifaMaquinaProyecto.proyecto_id == proyecto_id).all()
+
+
+@router.put("/proyectos/{proyecto_id}/tarifas-maquinas", response_model=TarifaMaquinaProyectoOut)
+def upsert_tarifa_maquina_proyecto_endpoint(
+    proyecto_id: int,
+    data: TarifaMaquinaProyectoUpsert,
+    db: Session = Depends(get_db),
+):
+    proyecto = db.query(Proyecto).filter(Proyecto.id == proyecto_id).first()
+    if not proyecto:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    maquina = db.query(Maquina).filter(Maquina.id == data.maquina_id).first()
+    if not maquina:
+        raise HTTPException(status_code=404, detail="Máquina no encontrada")
+    row = cuenta_corriente_service.upsert_tarifa_maquina_proyecto(
+        db, proyecto_id, data.maquina_id, data.tarifa_hora
+    )
+    db.commit()
+    db.refresh(row)
+    return row
